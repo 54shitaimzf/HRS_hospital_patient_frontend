@@ -1,0 +1,33 @@
+{
+    "id": "yangth-medical",
+    "name": "红果园校医院挂号小程序",
+    "displayName": "红果园校医院挂号小程序",
+    "version": "1.0.0",
+    "description": "红果园校医院挂号小程序是一款面向校内师生的便捷医疗服务应用。用户可以通过该小程序轻松完成在线挂号、查询医生排班、查看检验报告、药品邮寄等操作，旨在为师生提供高效、便捷的校园医疗服务，减少排队等候时间，优化就医体验。",
+    "keywords": [
+        "预约挂号",
+        "门诊缴费",
+        "电子处方检查检验",
+        "智能问答",
+        "药品邮寄"
+    ],
+    "dcloudext": {
+        "type": "projecttemplate",
+        "sale": {
+            "regular": {
+                "price": "0.00"
+            },
+            "sourcecode": {
+                "price": "0.00"
+            }
+        }
+    },
+    "uni_modules": {
+        "dependencies": [],
+        "encrypt": []
+    },
+    "dependencies": {
+        "@dcloudio/uni-ui": "^1.5.7",
+        "vite": "^7.1.12"
+    }
+}
