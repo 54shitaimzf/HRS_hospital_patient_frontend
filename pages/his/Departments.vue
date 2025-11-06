@@ -1,10 +1,14 @@
 <template>
 	<view class="department-page">
 		<view class="search-bar">
-			<uni-search-bar placeholder="搜索科室或医生" radius="100" bgColor="#f0f9ff" @confirm="search" />
+			<uni-search-bar placeholder="搜索科室" radius="100" bgColor="#f0f9ff" @confirm="search" />
 		</view>
 
-		<view class="main-content">
+		<view v-if="loading" class="loading-state">
+			<uni-load-more status="loading"></uni-load-more>
+		</view>
+
+		<view v-else class="main-content">
 			<!-- 左侧一级科室 -->
 			<scroll-view scroll-y class="left-panel">
 				<view v-for="dept in allDepartments" :key="dept.id"
@@ -16,8 +20,8 @@
 
 			<!-- 右侧二级门诊 -->
 			<scroll-view scroll-y class="right-panel">
-				<view v-for="clinic in getSubDepartments(selectedDeptId)" :key="clinic.id" class="right-item"
-					@click="gotoDoctors(clinic.id)">
+				<view v-for="clinic in subDepartments" :key="clinic.id" class="right-item"
+					@click="gotoSchedule(clinic.id, clinic.name)">
 					<text class="clinic-name">{{ clinic.name }}</text>
 					<uni-icons type="right" size="18" color="#999" />
 				</view>
@@ -29,166 +33,76 @@
 <script setup>
 	import uniSearchBar from '@dcloudio/uni-ui/lib/uni-search-bar/uni-search-bar.vue'
 	import {
-		ref
+		ref,
+		computed
 	} from 'vue';
-	import { onLoad } from '@dcloudio/uni-app'
-	// 一级科室
-	const allDepartments = ref([{
-			id: 1,
-			name: '内科'
-		},
-		{
-			id: 2,
-			name: '外科'
-		},
-		{
-			id: 3,
-			name: '妇产科'
-		},
-		{
-			id: 4,
-			name: '儿科'
-		},
-		{
-			id: 5,
-			name: '眼科'
-		},
-		{
-			id: 6,
-			name: '口腔科'
-		},
-		{
-			id: 7,
-			name: '耳鼻喉科'
-		},
-		{
-			id: 8,
-			name: '皮肤科'
-		},
-		{
-			id: 9,
-			name: '中医科'
-		},
-		{
-			id: 10,
-			name: '康复理疗科'
-		},
-		{
-			id: 11,
-			name: '急诊科'
-		},
-		{
-			id: 12,
-			name: '体检中心'
-		},
-	]);
+	import {
+		onLoad
+	} from '@dcloudio/uni-app'
 
-	// 二级门诊
-	const subDepartmentsMap = {
-		1: [{
-			id: 101,
-			name: '呼吸内科'
-		}, {
-			id: 102,
-			name: '心血管内科'
-		}],
-		2: [{
-			id: 201,
-			name: '骨科'
-		}, {
-			id: 202,
-			name: '普外科'
-		}],
-		3: [{
-			id: 301,
-			name: '妇科'
-		}, {
-			id: 302,
-			name: '产科'
-		}],
-		4: [{
-			id: 401,
-			name: '儿童保健'
-		}, {
-			id: 402,
-			name: '新生儿科'
-		}],
-		5: [{
-			id: 501,
-			name: '视光科'
-		}, {
-			id: 502,
-			name: '眼底病科'
-		}],
-		6: [{
-			id: 601,
-			name: '牙体牙髓科'
-		}, {
-			id: 602,
-			name: '正畸科'
-		}],
-		7: [{
-			id: 701,
-			name: '耳鼻科'
-		}, {
-			id: 702,
-			name: '咽喉科'
-		}],
-		8: [{
-			id: 801,
-			name: '皮肤美容'
-		}, {
-			id: 802,
-			name: '皮肤病科'
-		}],
-		9: [{
-			id: 901,
-			name: '针灸科'
-		}, {
-			id: 902,
-			name: '推拿科'
-		}],
-		10: [{
-			id: 1001,
-			name: '康复治疗科'
-		}, {
-			id: 1002,
-			name: '理疗科'
-		}],
-		11: [{
-			id: 1101,
-			name: '急诊内科'
-		}, {
-			id: 1102,
-			name: '急诊外科'
-		}],
-		12: [{
-			id: 1201,
-			name: '综合体检'
-		}, {
-			id: 1202,
-			name: '专项体检'
-		}],
+	const allDepartments = ref([]);
+	const selectedDeptId = ref(null);
+	const loading = ref(true);
+
+	// 获取科室数据
+	const fetchDepartments = async () => {
+		loading.value = true;
+		try {
+			const res = await uni.request({
+				url: 'http://localhost:8082/api/departments',
+				method: 'GET'
+			});
+			if (res.statusCode === 200) {
+				allDepartments.value = res.data;
+				if (allDepartments.value.length > 0) {
+					// 默认选中第一个科室
+					selectedDeptId.value = allDepartments.value[0].id;
+				}
+			} else {
+				uni.showToast({
+					title: '科室列表加载失败',
+					icon: 'none'
+				});
+			}
+		} catch (error) {
+			console.error('获取科室列表失败:', error);
+			uni.showToast({
+				title: '网络错误',
+				icon: 'none'
+			});
+		} finally {
+			loading.value = false;
+		}
 	};
 
-	const selectedDeptId = ref(1);
+	onLoad(() => {
+		fetchDepartments();
+	});
+
 
 	const selectDepartment = (id) => {
 		selectedDeptId.value = id;
 	};
 
-	const getSubDepartments = (deptId) => {
-		return subDepartmentsMap[deptId] || [];
-	};
+	// 计算属性，用于获取当前选中一级科室对应的二级科室
+	const subDepartments = computed(() => {
+		if (!selectedDeptId.value || allDepartments.value.length === 0) {
+			return [];
+		}
+		const selectedDept = allDepartments.value.find(dept => dept.id === selectedDeptId.value);
+		return selectedDept ? selectedDept.subDepartments : [];
+	});
 
-	const gotoDoctors = (deptId) => {
+
+	const gotoSchedule = (deptId, deptName) => {
 		uni.navigateTo({
-			url: `/pages/his/DoctorList?deptId=${deptId}`
+			url: `/pages/his/Schedule?deptId=${deptId}&deptName=${encodeURIComponent(deptName)}`
 		});
 	};
 
 	const search = (e) => {
 		console.log('搜索:', e.value);
+		// 搜索逻辑可以后续实现，例如前端过滤或后端搜索
 	};
 </script>
 
@@ -196,21 +110,28 @@
 	.department-page {
 		background-color: #fafafa;
 		height: 100vh;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.search-bar {
-		margin-bottom: 20rpx;
+		padding: 10rpx 20rpx;
+		background-color: #fff;
+	}
+
+	.loading-state {
+		flex: 1;
+		display: flex;
+		justify-content: center;
+		align-items: center;
 	}
 
 	.main-content {
 		display: flex;
 		flex-direction: row;
-		justify-content: space-between;
-		height: calc(100vh - 140rpx);
-		border-radius: 16rpx;
+		flex: 1;
 		overflow: hidden;
 		background-color: #fff;
-		box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.03);
 	}
 
 	.left-panel {
@@ -224,6 +145,7 @@
 		text-align: center;
 		font-size: 28rpx;
 		color: #333;
+		transition: all 0.2s;
 	}
 
 	.left-item.active {
@@ -238,12 +160,6 @@
 		padding: 20rpx 30rpx;
 	}
 
-	.sub-title {
-		font-size: 30rpx;
-		font-weight: bold;
-		margin-bottom: 20rpx;
-		color: #333;
-	}
 
 	.right-item {
 		display: flex;

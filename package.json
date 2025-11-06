@@ -27,7 +27,6 @@
         "encrypt": []
     },
     "dependencies": {
-        "@dcloudio/uni-ui": "^1.5.7",
-        "vite": "^7.1.12"
+        "@dcloudio/uni-ui": "^1.5.7"
     }
 }

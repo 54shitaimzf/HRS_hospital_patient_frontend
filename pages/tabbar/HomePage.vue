@@ -70,7 +70,7 @@
 			icon: '/static/images/home/yygh.png',
 			text: '预约挂号',
 			action: () => uni.navigateTo({
-				url: '/pages/his/Schedule'
+				url: '/pages/his/Departments'
 			}),
 		},
 		{
