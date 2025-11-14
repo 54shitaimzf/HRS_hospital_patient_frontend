@@ -1,5 +1,5 @@
 <template>
-	<scroll-view scroll-y class="container">
+	<scroll-view scroll-y="true" class="container">
 		<view class="doctor-card" v-for="doc in doctorList" :key="doc.id">
 			<view class="doctor-info" @click="goSchedule(doc)">
 				<view class="name-row">
@@ -27,6 +27,7 @@
 	onLoad(() => {
 		doctorList.value = [{
 				id: 1,
+				departId: 'DEP013', // 新增科室编码，供排班页使用
 				name: '张三',
 				title: '主任医师',
 				desc: '擅长高血压、糖尿病的综合治疗',
@@ -35,6 +36,7 @@
 			},
 			{
 				id: 2,
+				departId: 'DEP013',
 				name: '李四',
 				title: '副主任医师',
 				desc: '心血管疾病专科，经验丰富',
@@ -45,8 +47,9 @@
 	})
 
 	const goSchedule = (doc) => {
+		// 传递科室编码与医生名（医生名仅用于标题展示，不影响接口）
 		uni.navigateTo({
-			url: `/pages/his/Schedule?id=${doc.id}`
+			url: `/pages/his/Schedule?deptId=${doc.departId}&deptName=${encodeURIComponent(doc.name)}`
 		})
 	}
 </script>

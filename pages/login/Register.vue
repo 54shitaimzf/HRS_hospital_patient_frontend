@@ -18,17 +18,31 @@
 			</view>
 			<view class="input-group">
 				<uni-icons type="contact" size="22" color="#999"></uni-icons>
-				<input v-model="form.identificationId" placeholder="请输入身份证号" class="input" />
+				<input v-model="form.identificationId" placeholder="请输入身份证号(18位)" class="input" />
+			</view>
+			<view class="input-group">
+				<uni-icons type="email" size="22" color="#999"></uni-icons>
+				<input v-model="form.userEmail" placeholder="请输入邮箱" class="input" />
+			</view>
+			<view class="input-group">
+				<uni-icons type="phone" size="22" color="#999"></uni-icons>
+				<input v-model="form.userPhone" placeholder="请输入手机号" class="input" />
+			</view>
+			<view class="input-group">
+				<uni-icons type="calendar" size="22" color="#999"></uni-icons>
+				<picker mode="date" :value="form.birthday" @change="onBirthdayChange" class="input">
+					<view>{{ form.birthday || '请选择生日' }}</view>
+				</picker>
 			</view>
 			<view class="input-group gender-group">
 				<uni-icons type="staff" size="22" color="#999"></uni-icons>
 				<text class="gender-label">性别</text>
 				<radio-group @change="genderChange" class="radio-group">
 					<label class="radio">
-						<radio value="男" checked="true" /><text>男</text>
+						<radio value="男" :checked="form.userGender==='男'" /><text>男</text>
 					</label>
 					<label class="radio">
-						<radio value="女" /><text>女</text>
+						<radio value="女" :checked="form.userGender==='女'" /><text>女</text>
 					</label>
 				</radio-group>
 			</view>
@@ -47,73 +61,50 @@
 
 
 <script setup>
-	import {
-		ref
-	} from 'vue'
+import { ref } from 'vue'
+import { api } from '../../utils/api.js'
 
-	const form = ref({
-		userName: '',
-		userPassword: '',
-		confirm: '',
-		userGender: '男',
-		userAccount: '',
-		identificationId: ''
-	})
+const form = ref({
+	userName: '',
+	userPassword: '',
+	confirm: '',
+	userGender: '男',
+	userAccount: '',
+	identificationId: '',
+	userEmail: '',
+	userPhone: '',
+	birthday: ''
+})
 
-	const goBack = () => {
-		uni.navigateBack();
+const goBack = () => { uni.navigateBack() }
+const genderChange = (e) => { form.value.userGender = e.detail.value }
+const onBirthdayChange = (e) => { form.value.birthday = e.detail.value }
+
+const register = async () => {
+	if (form.value.userPassword !== form.value.confirm) {
+		return uni.showToast({ title: '两次密码不一致', icon: 'none' })
 	}
-
-	const genderChange = (e) => {
-		form.value.userGender = e.detail.value
+	if (!form.value.identificationId || form.value.identificationId.length !== 18) {
+		return uni.showToast({ title: '身份证号必须为18位', icon: 'none' })
 	}
-
-	const register = async () => {
-		if (form.value.userPassword !== form.value.confirm) {
-			return uni.showToast({
-				title: '两次密码不一致',
-				icon: 'none'
-			})
-		}
-		const registerData = { ...form.value };
-		delete registerData.confirm;
-		try {
-			const res = await uni.request({
-				url: 'http://localhost:8082/user/register',
-				method: 'POST',
-				data: registerData
-			});
-
-			if (res && res.data) {
-				if (res.data.code === '200' || res.data.code === 200) {
-					uni.showToast({
-						title: '注册成功',
-						icon: 'success'
-					});
-					setTimeout(() => uni.redirectTo({
-						url: '/pages/login/Login'
-					}), 1000);
-				} else {
-					console.log('注册失败，后端返回数据:', res.data);
-					uni.showToast({
-						title: `${res.data.message || '注册失败'}(${res.data.code})`,
-						icon: 'none'
-					});
-				}
+	const { confirm, ...registerData } = form.value
+	try {
+		const res = await api.post('/user/register', registerData)
+		if (res && res.data) {
+			if (res.data.code === 200 || res.data.code === '200') {
+				uni.showToast({ title: '注册成功', icon: 'success' })
+				setTimeout(() => uni.redirectTo({ url: '/pages/login/Login' }), 600)
 			} else {
-				uni.showToast({
-					title: '网络错误或服务器响应异常',
-					icon: 'none'
-				});
+				uni.showToast({ title: res.data.msg || res.data.message || '注册失败', icon: 'none' })
 			}
-		} catch (error) {
-			uni.showToast({
-				title: '请求失败，请检查网络连接',
-				icon: 'none'
-			});
-			console.error('Register request failed:', error);
+		} else {
+			uni.showToast({ title: '网络错误或服务器响应异常', icon: 'none' })
 		}
+	} catch (error) {
+		uni.showToast({ title: '请求失败，请检查网络连接', icon: 'none' })
+		console.error('Register request failed:', error)
 	}
+}
 </script>
 
 

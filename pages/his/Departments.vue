@@ -58,6 +58,10 @@
 					// 默认选中第一个科室
 					selectedDeptId.value = allDepartments.value[0].id;
 				}
+				uni.showToast({
+					title: `科室加载成功: ${res.data.length}个`,
+					icon: 'none'
+				});
 			} else {
 				uni.showToast({
 					title: '科室列表加载失败',
@@ -82,6 +86,14 @@
 
 	const selectDepartment = (id) => {
 		selectedDeptId.value = id;
+		const selectedDept = allDepartments.value.find(dept => dept.id === id);
+		if (selectedDept) {
+			uni.showToast({
+				title: `选中科室: ${selectedDept.name}，下有 ${selectedDept.subDepartments?.length || 0} 个二级科室`,
+				icon: 'none',
+				duration: 2000
+			});
+		}
 	};
 
 	// 计算属性，用于获取当前选中一级科室对应的二级科室
@@ -95,13 +107,17 @@
 
 
 	const gotoSchedule = (deptId, deptName) => {
+		uni.showToast({
+			title: `进入科室: ${deptName}`,
+			icon: 'none',
+			duration: 1000
+		});
 		uni.navigateTo({
 			url: `/pages/his/Schedule?deptId=${deptId}&deptName=${encodeURIComponent(deptName)}`
 		});
 	};
 
 	const search = (e) => {
-		console.log('搜索:', e.value);
 		// 搜索逻辑可以后续实现，例如前端过滤或后端搜索
 	};
 </script>

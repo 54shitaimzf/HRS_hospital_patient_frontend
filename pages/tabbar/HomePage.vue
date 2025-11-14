@@ -42,6 +42,12 @@
 </template>
 
 <script setup>
+	import {
+		ref,
+		onMounted,
+		getCurrentInstance
+	} from 'vue';
+
 	const banners = [
 		'/static/images/home/lb1.jpg',
 		'/static/images/home/lb1.jpg',
@@ -49,21 +55,24 @@
 	];
 
 	const marqueeMsg = '【智慧医院】欢迎您！请注意佩戴口罩，保持安全距离。';
-	// 计算动画时长：根据文本长度动态设置，让文字匀速滚动
-	import {
-		ref,
-		onMounted
-	} from 'vue';
 	const animationDuration = ref(10); // 默认10秒
+
 	onMounted(() => {
-		const container = document.querySelector('.marquee-wrapper');
-		const content = document.querySelector('.marquee-content');
-		if (container && content) {
-			const containerWidth = container.clientWidth;
-			const contentWidth = content.scrollWidth;
-			// 时长根据宽度比例，内容越长，时间越长，保证滚动速度基本一致
-			animationDuration.value = ((contentWidth + containerWidth) / 100) * 4; // 你可以调整4这个速度参数
-		}
+		// #ifdef MP-WEIXIN
+		const { proxy } = getCurrentInstance();
+		const query = uni.createSelectorQuery().in(proxy);
+		query.select('.marquee-wrapper').boundingClientRect();
+		query.select('.marquee-content').boundingClientRect();
+		query.exec(res => {
+			if (res && res[0] && res[1]) {
+				const containerWidth = res[0].width;
+				const contentWidth = res[1].width;
+				if (contentWidth > 0) {
+					animationDuration.value = ((contentWidth + containerWidth) / 100) * 4;
+				}
+			}
+		});
+		// #endif
 	});
 
 	const gridList = [{
@@ -112,7 +121,7 @@
 
 	const goDepartments = () => {
 		uni.navigateTo({
-			url: '/pages/departments'
+			url: '/pages/his/Departments'
 		});
 	};
 
