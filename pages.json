@@ -58,6 +58,12 @@
 			}
 		},
 		{
+			"path": "pages/his/WaitingRegistration",
+			"style": {
+				"navigationBarTitleText": "候补挂号"
+			}
+		},
+		{
 			"path": "pages/record/RecordList",
 			"style": {
 				"navigationBarTitleText": "就诊记录"
@@ -121,6 +127,12 @@
 			"path": "pages/pay/Payment",
 			"style": {
 				"navigationBarTitleText": "支付"
+			}
+		},
+		{
+			"path": "pages/me/RegistrationList",
+			"style": {
+				"navigationBarTitleText": "我的挂号"
 			}
 		}
 		

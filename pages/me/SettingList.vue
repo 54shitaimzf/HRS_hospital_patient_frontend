@@ -13,6 +13,10 @@
 			<text>关于我们</text>
 			<text class="arrow">></text>
 		</view>
+		<view class="setting-item" @click="goRegistrations">
+			<text>我的挂号</text>
+			<text class="arrow">></text>
+		</view>
 	</view>
 </template>
 
@@ -35,6 +39,11 @@
 	const about = () => {
 		uni.navigateTo({
 			url: '/pages/about/index'
+		})
+	}
+	const goRegistrations = () => {
+		uni.navigateTo({
+			url: '/pages/me/RegistrationList'
 		})
 	}
 </script>

@@ -27,6 +27,11 @@
         "encrypt": []
     },
     "dependencies": {
-        "@dcloudio/uni-ui": "^1.5.7"
+        "@dcloudio/uni-ui": "^1.5.7",
+        "express": "^4.19.2",
+        "cors": "^2.8.5"
+    },
+    "scripts": {
+        "mock": "node mock/server.js"
     }
 }

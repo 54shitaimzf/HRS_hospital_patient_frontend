@@ -30,7 +30,9 @@
 							<text class="remain" :class="{ none: item.leftSourceCount === 0 }">剩余: {{ item.leftSourceCount }}</text>
 						</view>
 					</view>
-					<button class="reserve-btn" :disabled="item.leftSourceCount === 0" @click="reserve(item)">预约</button>
+					<button class="reserve-btn" :disabled="item.leftSourceCount === 0" @click="handleReservation(item)">
+						{{ item.leftSourceCount > 0 ? '预约' : '候补' }}
+					</button>
 				</view>
 			</view>
 		</scroll-view>
@@ -42,6 +44,7 @@
 	import { onLoad, onShow } from '@dcloudio/uni-app';
 	import { getPatientId } from '../../store/userUtil.js';
 	import { useUserStore } from '../../store/user.js'
+	import { api } from '../../utils/api.js'
 
 	const departmentId = ref('');
 	const departmentName = ref('');
@@ -81,14 +84,9 @@
 		doctorSchedules.value = [];
 		const { code } = parseDepartment(departmentId.value);
 		try {
-			const res = await uni.request({
-				url: 'http://localhost:8082/api/registration/doctors',
-				method: 'GET',
-				data: {
-					// API 要求 departmentId 为 string，例如 DEP013
-					departmentId: code || String(departmentId.value),
-					date: selectedDate.value
-				}
+			const res = await api.get('/api/registration/doctors', {
+				departmentId: code || String(departmentId.value),
+				date: selectedDate.value
 			});
 			if (seq === requestSeq.value) {
 				if (res.statusCode === 200) {
@@ -122,7 +120,7 @@
 	// 医生详情（保留，与后端字段 doc.title 对齐）
 	const showDoctorDetail = async (item) => {
 		try {
-			const res = await uni.request({ url: `http://localhost:8082/api/doctors/${item.doctorId}`, method: 'GET' });
+			const res = await api.get(`/api/doctors/${item.doctorId}`);
 			if (res.statusCode === 200) {
 				const doc = res.data;
 				uni.showModal({
@@ -143,6 +141,29 @@
 		return typeof val === 'string' && /^[A-Za-z0-9_-]+$/.test(val)
 	}
 
+	function handleReservation(item) {
+		if (item.leftSourceCount > 0) {
+			reserve(item);
+		} else {
+			goToWaiting(item);
+		}
+	}
+
+	function goToWaiting(item) {
+		const params = new URLSearchParams({
+			scheduleRecordId: item.scheduleRecordId,
+			departmentName: encodeURIComponent(departmentName.value),
+			doctorName: encodeURIComponent(item.doctorName),
+			doctorTitle: encodeURIComponent(item.doctorTitle),
+			scheduleDate: selectedDate.value,
+			timePeriodName: encodeURIComponent(item.timePeriodName),
+			registrationFee: item.registrationFee
+		}).toString();
+		uni.navigateTo({
+			url: `/pages/his/WaitingRegistration?${params}`
+		});
+	}
+
 	async function reserve(item) {
 		const pid = await userStore.ensurePatientId()
 		const patientId = pid || getPatientId()
@@ -160,10 +181,7 @@
 			success: async (res) => {
 				if (res.confirm) {
 					try {
-						const response = await uni.request({ url: 'http://localhost:8082/api/registrations', method: 'POST', data: { patientId, scheduleRecordId: item.scheduleRecordId, confirm: true } })
-						// 兼容两种风格：
-						// 1) REST 成功：HTTP 201
-						// 2) 业务包装：HTTP 200 + { code: 200, msg, data }
+						const response = await api.post('/api/registrations', { patientId, scheduleRecordId: item.scheduleRecordId, confirm: true })
 						const apiCode = response?.data?.code
 						const apiMsg = response?.data?.msg || response?.data?.message
 						const apiData = response?.data?.data || response?.data

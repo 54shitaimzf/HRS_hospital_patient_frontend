@@ -39,6 +39,7 @@
 	import {
 		onLoad
 	} from '@dcloudio/uni-app'
+	import { api } from '../../utils/api.js'
 
 	const allDepartments = ref([]);
 	const selectedDeptId = ref(null);
@@ -48,10 +49,7 @@
 	const fetchDepartments = async () => {
 		loading.value = true;
 		try {
-			const res = await uni.request({
-				url: 'http://localhost:8082/api/departments',
-				method: 'GET'
-			});
+			const res = await api.get('/api/departments');
 			if (res.statusCode === 200) {
 				allDepartments.value = res.data;
 				if (allDepartments.value.length > 0) {

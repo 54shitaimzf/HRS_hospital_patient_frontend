@@ -1,8 +1,8 @@
 <template>
-	<scroll-view scroll-y class="container">
+	<scroll-view scroll-y="true" class="container">
 		<!-- 头部信息 -->
 		<view class="profile-header">
-			<image class="avatar" :src="avatarUrl" mode="cover" />
+			<image class="avatar" :src="avatarUrl" mode="aspectFill" />
 			<text class="username">{{ username }}</text>
 		</view>
 
@@ -10,6 +10,11 @@
 		<view class="card" @click="goToProfileEdit">
 			<text class="card-title">个人资料</text>
 			<text class="card-desc">查看和编辑个人信息</text>
+		</view>
+
+		<view class="card" @click="goToRegistrations">
+			<text class="card-title">我的挂号</text>
+			<text class="card-desc">查看预约/已取消等挂号记录</text>
 		</view>
 
 		<view class="card" @click="goToOrders">
@@ -37,6 +42,11 @@
 	const goToProfileEdit = () => {
 		uni.navigateTo({
 			url: '/pages/me/ProfileEdit'
+		})
+	}
+	const goToRegistrations = () => {
+		uni.navigateTo({
+			url: '/pages/me/RegistrationList'
 		})
 	}
 	const goToOrders = () => {
