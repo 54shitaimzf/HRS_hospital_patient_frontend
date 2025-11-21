@@ -25,25 +25,7 @@
 	const doctorList = ref([])
 
 	onLoad(() => {
-		doctorList.value = [{
-				id: 1,
-				departId: 'DEP013', // 新增科室编码，供排班页使用
-				name: '张三',
-				title: '主任医师',
-				desc: '擅长高血压、糖尿病的综合治疗',
-				period: '上午',
-				remaining: 5
-			},
-			{
-				id: 2,
-				departId: 'DEP013',
-				name: '李四',
-				title: '副主任医师',
-				desc: '心血管疾病专科，经验丰富',
-				period: '下午',
-				remaining: 2
-			}
-		]
+		doctorList.value = []
 	})
 
 	const goSchedule = (doc) => {

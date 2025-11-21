@@ -30,7 +30,7 @@
 							<text class="remain" :class="{ none: item.leftSourceCount === 0 }">剩余: {{ item.leftSourceCount }}</text>
 						</view>
 					</view>
-					<button class="reserve-btn" :disabled="item.leftSourceCount === 0" @click="handleReservation(item)">
+					<button class="reserve-btn" @click="handleReservation(item)">
 						{{ item.leftSourceCount > 0 ? '预约' : '候补' }}
 					</button>
 				</view>
@@ -150,15 +150,15 @@
 	}
 
 	function goToWaiting(item) {
-		const params = new URLSearchParams({
-			scheduleRecordId: item.scheduleRecordId,
-			departmentName: encodeURIComponent(departmentName.value),
-			doctorName: encodeURIComponent(item.doctorName),
-			doctorTitle: encodeURIComponent(item.doctorTitle),
-			scheduleDate: selectedDate.value,
-			timePeriodName: encodeURIComponent(item.timePeriodName),
-			registrationFee: item.registrationFee
-		}).toString();
+		const params = [
+			`scheduleRecordId=${item.scheduleRecordId}`,
+			`departmentName=${encodeURIComponent(departmentName.value)}`,
+			`doctorName=${encodeURIComponent(item.doctorName)}`,
+			`doctorTitle=${encodeURIComponent(item.doctorTitle)}`,
+			`scheduleDate=${selectedDate.value}`,
+			`timePeriodName=${encodeURIComponent(item.timePeriodName)}`,
+			`registrationFee=${item.registrationFee}`
+		].join('&');
 		uni.navigateTo({
 			url: `/pages/his/WaitingRegistration?${params}`
 		});

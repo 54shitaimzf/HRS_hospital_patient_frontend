@@ -15,6 +15,58 @@ let users = [
   { account: 'testuser', password: '123456' }
 ]; // 用户数据
 
+// Updated doctorList with detailed information based on the API documentation
+const doctorList = [
+  {
+    doctorId: 'DOC001',
+    name: '杨毅',
+    title: '主任医师',
+    specialty: '高血压、冠心病等心血管疾病',
+    schedules: [
+      {
+        scheduleRecordId: 'SCH1001',
+        timePeriodName: '上午',
+        startTime: '08:00:00',
+        endTime: '12:00:00',
+        registrationFee: 50,
+        leftSourceCount: 5
+      }
+    ]
+  },
+  {
+    doctorId: 'DOC002',
+    name: '李蕙',
+    title: '副主任医师',
+    specialty: '糖尿病、甲状腺疾病',
+    schedules: [
+      {
+        scheduleRecordId: 'SCH1002',
+        timePeriodName: '下午',
+        startTime: '13:30:00',
+        endTime: '17:30:00',
+        registrationFee: 40,
+        leftSourceCount: 3
+      }
+    ]
+  },
+  {
+    doctorId: 'DOC003',
+    name: '李蕴微',
+    title: '主治医师',
+    specialty: '呼吸系统疾病',
+    schedules: [
+      {
+        scheduleRecordId: 'SCH1003',
+        timePeriodName: '晚上',
+        startTime: '18:00:00',
+        endTime: '21:00:00',
+        registrationFee: 30,
+        leftSourceCount: 0 // No remaining slots
+      }
+    ]
+  }
+];
+
 // 生成示例患者与 token 验证（简单跳过）
 function ensureDemoData() {
   if (registrations.length === 0) {
@@ -56,8 +108,23 @@ app.get('/api/registrations', (req, res) => {
 app.post('/api/registrations', (req, res) => {
   const { patientId, scheduleRecordId } = req.body;
   if (!patientId || !scheduleRecordId) return res.status(400).json({ code: 400, message: '参数缺失' });
+
+  // 调试日志：输出当前挂号记录
+  console.log('Current registrations:', registrations);
+
   const exists = registrations.find(r => r.patientId === patientId && r.scheduleRecordId === scheduleRecordId);
   if (exists) return res.status(409).json({ code: 409, message: '已存在挂号' });
+
+  // 查找医生并减少剩余名额
+  const doctor = doctorList.find(doc => doc.schedules.some(s => s.scheduleRecordId === scheduleRecordId));
+  if (doctor) {
+    const schedule = doctor.schedules.find(s => s.scheduleRecordId === scheduleRecordId);
+    if (schedule && schedule.leftSourceCount > 0) {
+      schedule.leftSourceCount -= 1;
+    } else {
+      return res.status(400).json({ code: 400, message: '号源不足' });
+    }
+  }
 
   registrations.push({
     patientId,
@@ -137,17 +204,19 @@ app.delete('/api/registrations/waiting', (req, res) => {
 // 简单医生排班模拟
 app.get('/api/registration/doctors', (req, res) => {
   const { departmentId, date } = req.query;
-  const schedules = [
-    {
-      doctorId: 'DOC001',
-      doctorName: '张医生',
-      doctorTitle: '主任医师',
-      schedules: [
-        { scheduleRecordId: 'SCH1001', timePeriodName: '上午', startTime: '08:00', endTime: '11:30', registrationFee: 20, leftSourceCount: 0 },
-        { scheduleRecordId: 'SCH1002', timePeriodName: '下午', startTime: '13:30', endTime: '17:00', registrationFee: 20, leftSourceCount: 5 }
-      ]
-    }
-  ];
+  const schedules = doctorList.map(doc => ({
+    doctorId: doc.doctorId,
+    doctorName: doc.name,
+    doctorTitle: doc.title,
+    schedules: doc.schedules.map(s => ({
+      scheduleRecordId: s.scheduleRecordId,
+      timePeriodName: s.timePeriodName,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      registrationFee: s.registrationFee,
+      leftSourceCount: s.leftSourceCount
+    }))
+  }));
   res.json(schedules);
 });
 
