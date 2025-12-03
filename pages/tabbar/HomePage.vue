@@ -1,20 +1,20 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y class="container">
-		<!-- 轮播图 -->
+		
 		<swiper indicator-dots autoplay interval="3000" class="swiper-container">
 			<swiper-item v-for="(banner, index) in banners" :key="index">
 				<image :src="banner" class="banner-image" mode="aspectFill" />
 			</swiper-item>
 		</swiper>
 
-		<!-- 消息滚动 -->
+		
 		<view class="marquee-wrapper">
 			<view class="marquee-content" :style="{ animationDuration: animationDuration + 's' }">
 				{{ marqueeMsg }}
 			</view>
 		</view>
 
-		<!-- 宫格功能 -->
+		
 		<view class="grid-container">
 			<view class="grid-item" v-for="(item, index) in gridList" :key="index" @click="item.action">
 				<image :src="item.icon" class="grid-icon" mode="aspectFit" />
@@ -22,7 +22,7 @@
 			</view>
 		</view>
 
-		<!-- 医院简介卡片 -->
+		
 		<view class="card">
 			<text class="card-title">🏨 医院简介</text>
 			<text class="card-content">
@@ -30,7 +30,7 @@
 			</text>
 		</view>
 
-		<!-- 特色科室卡片 -->
+		
 		<view class="card">
 			<text class="card-title">⭐ 特色科室</text>
 			<view class="card-content">
@@ -147,7 +147,7 @@
 		box-sizing: border-box;
 	}
 
-	/* 轮播图 */
+	
 	.swiper-container {
 		height: 280rpx;
 		border-radius: 24rpx;
@@ -162,7 +162,7 @@
 		object-fit: cover;
 	}
 
-	/* 消息滚动 */
+	
 	.marquee-wrapper {
 		width: 100%;
 		overflow: hidden;
@@ -199,7 +199,7 @@
 		}
 	}
 
-	/* 宫格功能 */
+	
 	.grid-container {
 		display: flex;
 		flex-wrap: wrap;
@@ -239,7 +239,7 @@
 		user-select: none;
 	}
 
-	/* 医院简介卡片 */
+	
 	.card {
 		background-color: white;
 		border-radius: 20rpx;
@@ -263,7 +263,7 @@
 		margin-bottom: 20rpx;
 	}
 
-	/* 特色科室按钮 */
+	
 	.main-btn {
 		width: 100%;
 		padding: 28rpx 0;

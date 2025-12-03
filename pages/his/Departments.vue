@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="department-page">
 		<view class="search-bar">
 			<uni-search-bar placeholder="搜索科室" radius="100" bgColor="#f0f9ff" @confirm="search" />
@@ -9,8 +9,8 @@
 		</view>
 
 		<view v-else class="main-content">
-			<!-- 左侧一级科室 -->
-			<scroll-view scroll-y class="left-panel">
+			
+			<scroll-view scroll-y="true" class="left-panel">
 				<view v-for="dept in allDepartments" :key="dept.id"
 					:class="['left-item', selectedDeptId === dept.id ? 'active' : '']"
 					@click="selectDepartment(dept.id)">
@@ -18,8 +18,8 @@
 				</view>
 			</scroll-view>
 
-			<!-- 右侧二级门诊 -->
-			<scroll-view scroll-y class="right-panel">
+			
+			<scroll-view scroll-y="true" class="right-panel">
 				<view v-for="clinic in subDepartments" :key="clinic.id" class="right-item"
 					@click="gotoSchedule(clinic.id, clinic.name)">
 					<text class="clinic-name">{{ clinic.name }}</text>
@@ -32,6 +32,8 @@
 
 <script setup>
 	import uniSearchBar from '@dcloudio/uni-ui/lib/uni-search-bar/uni-search-bar.vue'
+	import uniLoadMore from '@dcloudio/uni-ui/lib/uni-load-more/uni-load-more.vue'
+	import uniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 	import {
 		ref,
 		computed
@@ -44,8 +46,9 @@
 	const allDepartments = ref([]);
 	const selectedDeptId = ref(null);
 	const loading = ref(true);
+	const fromParam = ref('')
 
-	// 获取科室数据
+
 	const fetchDepartments = async () => {
 		loading.value = true;
 		try {
@@ -53,7 +56,7 @@
 			if (res.statusCode === 200) {
 				allDepartments.value = res.data;
 				if (allDepartments.value.length > 0) {
-					// 默认选中第一个科室
+
 					selectedDeptId.value = allDepartments.value[0].id;
 				}
 				uni.showToast({
@@ -77,9 +80,10 @@
 		}
 	};
 
-	onLoad(() => {
+	onLoad((options) => {
+		fromParam.value = options.from || ''
 		fetchDepartments();
-	});
+	})
 
 
 	const selectDepartment = (id) => {
@@ -94,7 +98,7 @@
 		}
 	};
 
-	// 计算属性，用于获取当前选中一级科室对应的二级科室
+
 	const subDepartments = computed(() => {
 		if (!selectedDeptId.value || allDepartments.value.length === 0) {
 			return [];
@@ -105,6 +109,11 @@
 
 
 	const gotoSchedule = (deptId, deptName) => {
+		if (fromParam.value === 'extraApply') {
+
+			uni.navigateTo({ url: `/pages/his/ExtraApply?deptId=${deptId}&deptName=${encodeURIComponent(deptName)}` })
+			return
+		}
 		uni.showToast({
 			title: `进入科室: ${deptName}`,
 			icon: 'none',
@@ -115,8 +124,8 @@
 		});
 	};
 
-	const search = (e) => {
-		// 搜索逻辑可以后续实现，例如前端过滤或后端搜索
+	const search = () => {
+
 	};
 </script>
 

@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y="true" class="container">
 		<view class="doctor-card" v-for="doc in doctorList" :key="doc.id">
 			<view class="doctor-info" @click="goSchedule(doc)">
@@ -14,6 +14,7 @@
 			</view>
 			<view class="btn-wrap">
 				<button class="reserve-btn" @click.stop="goSchedule(doc)">立即预约</button>
+				<button class="extra-btn" @click.stop="goExtraApply(doc)">加号</button>
 			</view>
 		</view>
 	</scroll-view>
@@ -23,16 +24,43 @@
 	import { ref } from 'vue' 
 	import { onLoad } from '@dcloudio/uni-app'
 	const doctorList = ref([])
+	const fromParam = ref('')
+	const currentDeptId = ref('')
 
-	onLoad(() => {
+	onLoad((options) => {
+		fromParam.value = options.from || ''
+
+		currentDeptId.value = options.deptId || options.departId || options.id || ''
 		doctorList.value = []
 	})
 
 	const goSchedule = (doc) => {
-		// 传递科室编码与医生名（医生名仅用于标题展示，不影响接口）
+
+		if (fromParam.value === 'extraApply') {
+			const params = [
+				`deptId=${encodeURIComponent(currentDeptId.value || doc.departId || '')}`,
+				`deptName=${encodeURIComponent(doc.departName || '')}`,
+				`doctorId=${encodeURIComponent(doc.id || doc.doctorId || '')}`,
+				`doctorName=${encodeURIComponent(doc.name || '')}`
+			].join('&')
+			uni.navigateTo({ url: `/pages/his/ExtraApply?${params}` })
+			return
+		}
+
 		uni.navigateTo({
 			url: `/pages/his/Schedule?deptId=${doc.departId}&deptName=${encodeURIComponent(doc.name)}`
 		})
+	}
+
+	const goExtraApply = (doc) => {
+
+		const params = [
+			`deptId=${encodeURIComponent(currentDeptId.value || doc.departId || '')}`,
+			`deptName=${encodeURIComponent(doc.departName || '')}`,
+			`doctorId=${encodeURIComponent(doc.id || doc.doctorId || '')}`,
+			`doctorName=${encodeURIComponent(doc.name || '')}`
+		].join('&')
+		uni.navigateTo({ url: `/pages/his/ExtraApply?${params}` })
 	}
 </script>
 
@@ -43,11 +71,11 @@
 		height: 100vh;
 	}
 
-	/* 医生卡片整体 */
+	
 	.doctor-card {
 		display: flex;
 		flex-direction: row;
-		/* 保证横排 */
+		
 		justify-content: space-between;
 		align-items: center;
 		background-color: #ffffff;
@@ -62,7 +90,7 @@
 		box-shadow: 0 12rpx 30rpx rgba(0, 100, 180, 0.15);
 	}
 
-	/* 医生信息区域 */
+	
 	.doctor-info {
 		flex: 1;
 		padding-right: 32rpx;
@@ -86,7 +114,7 @@
 		margin-left: 14rpx;
 	}
 
-	/* 医生擅长描述 */
+	
 	.desc {
 		font-size: 28rpx;
 		color: #5a6a82;
@@ -94,7 +122,7 @@
 		line-height: 38rpx;
 	}
 
-	/* 午别和余号 */
+	
 	.sub-info {
 		margin-top: 16rpx;
 		display: flex;
@@ -119,12 +147,15 @@
 		font-weight: 700;
 	}
 
-	/* 预约按钮容器 */
+	
 	.btn-wrap {
-		width: 180rpx;
+		width: 220rpx;
+		display:flex;
+		flex-direction: row;
+		gap: 12rpx;
 	}
 
-	/* 预约按钮 */
+	
 	.reserve-btn {
 		background: linear-gradient(135deg, #1a73e8 0%, #004080 100%);
 		color: #fff;
@@ -142,5 +173,18 @@
 	.reserve-btn:active {
 		background: linear-gradient(135deg, #004080 0%, #1a73e8 100%);
 		box-shadow: 0 3rpx 8rpx rgba(0, 64, 128, 0.6);
+	}
+
+	.extra-btn {
+		min-width:110px;
+		height:44px;
+		line-height:44px;
+		font-size:16px;
+		padding: 0 18px;
+		background: #6c757d;
+		color: #fff;
+		border-radius: 8px;
+		border: none;
+		cursor: pointer;
 	}
 </style>

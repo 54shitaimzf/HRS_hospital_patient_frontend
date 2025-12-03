@@ -1,14 +1,14 @@
-<template>
+﻿<template>
 	<view class="page">
 		<scroll-view class="container" scroll-y>
 			<view class="content">
-				<!-- 顶部横幅 -->
+				
 				<view class="banner">
 					<text class="banner-title">人民医院</text>
 					<text class="banner-subtitle">守护您的健康，共创美好未来</text>
 				</view>
 						
-				<!-- 医院简介 -->
+				
 				<view class="section">
 					<text class="section-title">医院简介</text>
 					<text class="section-content">
@@ -16,7 +16,7 @@
 					</text>
 				</view>
 						
-				<!-- 特色科室 -->
+				
 				<view class="section">
 					<text class="section-title">特色科室</text>
 					<view class="specialties">
@@ -27,7 +27,7 @@
 					</view>
 				</view>
 						
-				<!-- 医院环境 -->
+				
 				<view class="section">
 					<text class="section-title">医院环境</text>
 					<scroll-view scroll-x class="env-scroll" show-scrollbar="false">
@@ -35,7 +35,7 @@
 					</scroll-view>
 				</view>
 						
-				<!-- 联系方式 -->
+				
 				<view class="section contact-section">
 					<view class="section-title">联系方式</view>
 					<view class="contact-item">地址：XXX市XXX区xxx路100号</view>
@@ -95,7 +95,7 @@
 		color: #102a43;
 	}
 
-	/* 顶部横幅 */
+	
 	.banner {
 		background: linear-gradient(135deg, #0052d9, #1890ff);
 		border-radius: 24rpx;
@@ -119,7 +119,7 @@
 		opacity: 0.9;
 	}
 
-	/* 每个内容区块 */
+	
 	.section {
 		background: #fff;
 		border-radius: 20rpx;
@@ -128,7 +128,7 @@
 		box-shadow: 0 8rpx 15rpx rgba(0, 43, 92, 0.1);
 	}
 
-	/* 标题 */
+	
 	.section-title {
 		font-size: 36rpx;
 		font-weight: 700;
@@ -139,7 +139,7 @@
 		user-select: none;
 	}
 
-	/* 医院简介内容 */
+	
 	.section-content {
 		font-size: 28rpx;
 		line-height: 44rpx;
@@ -147,7 +147,7 @@
 		white-space: pre-line;
 	}
 
-	/* 特色科室卡片 */
+	
 	.specialties {
 		display: flex;
 		gap: 24rpx;
@@ -183,7 +183,7 @@
 		line-height: 40rpx;
 	}
 
-	/* 医院环境横向滚动 */
+	
 	.env-scroll {
 		display: flex;
 		gap: 20rpx;
@@ -203,7 +203,7 @@
 	    margin-right: 0;
 	}
 
-	/* 联系方式 */
+	
 	.contact-section {
 		font-size: 28rpx;
 		color: #33475b;

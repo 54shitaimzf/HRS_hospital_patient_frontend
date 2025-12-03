@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="forget-container">
 		<view class="header">
 			<image src="/static/logo.png" class="logo" />
@@ -48,7 +48,7 @@
 	let timer = null
 
 	onLoad(() => {
-		// 页面加载逻辑
+
 	})
 
 	const sendCode = () => {
@@ -59,7 +59,7 @@
 			})
 			return
 		}
-		// 这里调用验证码发送接口
+
 		uni.showToast({
 			title: '验证码已发送',
 			icon: 'success'
@@ -81,7 +81,7 @@
 			})
 			return
 		}
-		// 调用重置密码接口
+
 		uni.showLoading({
 			title: '提交中...'
 		})
@@ -91,7 +91,7 @@
 				title: '密码重置成功',
 				icon: 'success'
 			})
-			// 可跳转登录页
+
 			uni.navigateBack()
 		}, 1500)
 	}

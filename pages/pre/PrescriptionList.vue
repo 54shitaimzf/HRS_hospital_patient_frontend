@@ -1,11 +1,11 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y class="container">
-		<!-- Banner 区域 -->
+		
 		<view class="banner">
 			<text class="banner-title">📄 我的电子处方</text>
 		</view>
 
-		<!-- 处方列表 -->
+		
 		<view v-if="prescriptions.length" class="card-list">
 			<view class="card" v-for="item in prescriptions" :key="item.id">
 				<view class="card-header">
@@ -26,7 +26,7 @@
 			</view>
 		</view>
 
-		<!-- 空状态 -->
+		
 		<view v-else class="empty">
 			<image src="/static/image/empty.png" class="empty-img" />
 			<text class="empty-text">暂无处方记录</text>
@@ -68,7 +68,7 @@
 			title: `处方 ${item.id} 下载中...`,
 			icon: 'none'
 		})
-		// 实际可调用下载接口
+
 	}
 </script>
 

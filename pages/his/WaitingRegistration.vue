@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="container">
 		<view class="card">
 			<view class="header">
@@ -59,7 +59,7 @@
 
 	const userStore = useUserStore();
 
-	// 页面传参
+
 	const scheduleRecordId = ref('');
 	const departmentName = ref('');
 	const doctorName = ref('');
@@ -68,7 +68,7 @@
 	const timePeriodName = ref('');
 	const registrationFee = ref(0);
 
-	// 候补信息
+
 	const loading = ref(true);
 	const submitting = ref(false);
 	const error = ref('');
@@ -231,4 +231,5 @@
 		background-color: #ccc;
 	}
 </style>
+
 

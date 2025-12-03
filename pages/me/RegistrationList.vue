@@ -1,6 +1,6 @@
-<template>
+﻿<template>
   <view class="page-container">
-    <!-- 顶部筛选栏 -->
+    
     <view class="filters">
       <scroll-view scroll-x="true" class="status-tabs">
         <view v-for="s in statusOptions" :key="s" class="tab" :class="{ active: filters.status === s }" @click="changeStatus(s)">
@@ -18,7 +18,7 @@
       </view>
     </view>
 
-    <!-- 列表区域 -->
+    
     <scroll-view scroll-y="true" class="list" @scrolltolower="loadMore" refresher-enabled="true" :refresher-triggered="refresher" @refresherrefresh="onRefresh">
       <view v-if="loading && page === 1" class="loading-initial">加载中...</view>
       <view v-else-if="error && page === 1" class="error-box">
@@ -39,7 +39,7 @@
         <view class="line"><text class="label">医生:</text><text class="value">{{ item.doctorId || '—' }}</text></view>
         <view class="line"><text class="label">挂号时间:</text><text class="value">{{ formatTime(item.registerTime) }}</text></view>
         <view class="line"><text class="label">记录键:</text><text class="value">{{ item.scheduleRecordId }}</text></view>
-        <!-- 操作按钮 -->
+        
         <view class="actions">
           <button size="mini" class="detail-btn" @click="viewDetail(item)">详情</button>
           <button size="mini" class="cancel-btn" v-if="canCancel(item.status)" @click="cancel(item)">取消</button>
@@ -106,11 +106,11 @@ async function cancel(item){
       if (res.confirm) {
         try {
           await cancelRegistration({ scheduleRecordId: item.scheduleRecordId });
-          // 刷新列表或直接更新该项状态
+
           const target = registrations.value.find(r => r.scheduleRecordId === item.scheduleRecordId);
           if (target) target.status = '已取消';
         } catch (e) {
-          // api.js 中已提示，此处可不重复提示
+
         }
       }
     }
@@ -129,7 +129,7 @@ async function cancelWaiting(item) {
           const target = registrations.value.find(r => r.waitingId === item.waitingId);
           if (target) target.status = '已取消';
         } catch (e) {
-          // api.js 中已提示
+
         }
       }
     }
@@ -157,7 +157,7 @@ async function load() {
     let finalTotal = 0;
     let combinedList = [];
 
-    // 根据筛选条件决定调用哪个接口
+
     if (filters.status === '候补中') {
       const { list, total } = await fetchWaitingRegistrations({
         patientId: pid,
@@ -215,7 +215,7 @@ function onRefresh(){
   resetAndLoad()
 }
 
-// 初始加载
+
 load()
 </script>
 
@@ -250,3 +250,4 @@ load()
 .detail-btn { margin-right:16rpx; background:#4e9deb; color:#fff; }
 .cancel-btn { background:#e53935; color:#fff; }
 </style>
+

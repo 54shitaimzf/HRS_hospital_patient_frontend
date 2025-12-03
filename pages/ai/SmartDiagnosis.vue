@@ -1,12 +1,12 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y class="container">
-		<!-- 顶部 Banner -->
+		
 		<view class="banner">
 			<view class="banner-title">🤖 智能问诊助手</view>
 			<view class="banner-sub">根据症状快速获取健康建议</view>
 		</view>
 
-		<!-- 问诊入口卡片 -->
+		
 		<view class="card">
 			<text class="card-title">🎯 开始问诊</text>
 			<text class="card-content">
@@ -17,7 +17,7 @@
 			</view>
 		</view>
 
-		<!-- 推荐症状 -->
+		
 		<view class="card">
 			<text class="card-title">🩺 常见症状</text>
 			<view class="tag-list">

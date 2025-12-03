@@ -1,11 +1,11 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y class="container">
-		<!-- Banner -->
+		
 		<view class="banner">
 			<text class="banner-title">🧪 检查检验报告</text>
 		</view>
 
-		<!-- 检查报告卡片列表 -->
+		
 		<view v-if="reportList.length" class="card-list">
 			<view class="card" v-for="item in reportList" :key="item.id">
 				<view class="card-header">
@@ -26,7 +26,7 @@
 			</view>
 		</view>
 
-		<!-- 空状态 -->
+		
 		<view v-else class="empty-card">
 			<image src="/static/image/empty.png" class="empty-img" />
 			<text class="empty-text">暂无检查检验记录</text>

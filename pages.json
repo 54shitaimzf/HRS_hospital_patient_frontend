@@ -130,9 +130,33 @@
 			}
 		},
 		{
+			"path": "pages/pay/MockPayment",
+			"style": {
+				"navigationBarTitleText": "模拟支付"
+			}
+		},
+		{
 			"path": "pages/me/RegistrationList",
 			"style": {
 				"navigationBarTitleText": "我的挂号"
+			}
+		},
+		{
+			"path": "pages/his/ExtraApply",
+			"style": {
+				"navigationBarTitleText": "加号申请"
+			}
+		},
+		{
+			"path": "pages/his/ExtraApplyDetail",
+			"style": {
+				"navigationBarTitleText": "加号申请详情"
+			}
+		},
+		{
+			"path": "pages/his/ExtraApplyList",
+			"style": {
+				"navigationBarTitleText": "我的加号申请"
 			}
 		}
 		

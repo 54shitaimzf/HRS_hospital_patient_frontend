@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="container">
 		<view class="payment-info">
 			<text class="label">医生：</text><text class="value">{{ doctorName }}</text>
@@ -27,13 +27,19 @@
 		<button class="pay-btn" @click="pay" :disabled="isPaying">
 			{{ isPaying ? '支付中...' : '立即支付' }}
 		</button>
+
+		
+		<button v-if="isPendingPayment" class="mock-pay-btn" @click="goToMockPayment">
+			去支付（模拟）
+		</button>
 	</view>
 </template>
 
 
 <script setup>
 	import {
-		ref
+		ref,
+		computed
 	} from 'vue'
 	import {
 		onLoad
@@ -45,6 +51,8 @@
 	const fee = ref(0)
 	const isPaying = ref(false)
 	const selectedMethod = ref('wechat') // 默认微信支付
+	const orderId = ref('')
+	const orderStatus = ref('')
 
 	const payMethods = [{
 			label: '微信支付',
@@ -63,7 +71,19 @@
 		department.value = options.department || ''
 		time.value = options.time || ''
 		fee.value = Number(options.fee) || 0
+
+		orderId.value = options.orderId || options.id || ''
+		orderStatus.value = options.status || options.orderStatus || ''
 	})
+
+
+	const isPendingPayment = computed(() => orderStatus.value === '待支付')
+
+	function goToMockPayment() {
+
+		const url = `/pages/pay/MockPayment?orderId=${encodeURIComponent(orderId.value || '')}&amount=${encodeURIComponent(fee.value)}&title=${encodeURIComponent('挂号费用')}&doctorName=${encodeURIComponent(doctorName.value)}&department=${encodeURIComponent(department.value)}`
+		uni.navigateTo({ url })
+	}
 
 	const pay = async () => {
 		if (isPaying.value) return
@@ -132,7 +152,7 @@
 				})
 			}
 		} else if (selectedMethod.value === 'medical') {
-			// TODO: 医保支付流程，替换为你自己的逻辑
+
 			uni.showToast({
 				title: '医保支付暂未开通',
 				icon: 'none'
@@ -192,6 +212,19 @@
 		text-align: center;
 		box-shadow: 0 8rpx 20rpx rgba(24, 144, 255, 0.4);
 		transition: transform 0.2s ease;
+	}
+
+	.mock-pay-btn {
+		width: 100%;
+		background: #fff;
+		color: #1890ff;
+		font-size: 32rpx;
+		padding: 22rpx 0;
+		border-radius: 50rpx;
+		font-weight: 700;
+		border: 2rpx solid #1890ff;
+		text-align: center;
+		margin-top: 12rpx;
 	}
 
 	.pay-btn:active {

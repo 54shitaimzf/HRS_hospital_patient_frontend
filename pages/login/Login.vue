@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="login-container">
 		<view class="header">
 			<image src="/static/logo.png" class="logo" />
@@ -45,7 +45,7 @@
 	const isHarmonyOS = ref(false);
 
 	onLoad(() => {
-		// 检测是否鸿蒙系统
+
 		// #ifdef HARMONY
 		isHarmonyOS.value = true;
 		// #endif
@@ -60,12 +60,12 @@
 			if (res && res.data) {
 				if (res.data.code === '200' || res.data.code === 200) {
 					uni.showToast({ title: '登录成功', icon: 'success' });
-					// 兼容多种后端返回形态：data 可能是 token 字符串、对象包含 token/user、或直接是 user
+
 					const payload = (res.data && res.data.data !== undefined) ? res.data.data : res.data;
 					let token = '';
 					let userObj = {};
 					if (typeof payload === 'string') {
-						// data 是纯 token 字符串
+
 						token = payload;
 					} else if (payload && typeof payload === 'object') {
 						if (typeof payload.token === 'string') token = payload.token;
@@ -73,12 +73,12 @@
 						else if (payload.userInfo && typeof payload.userInfo === 'object') userObj = payload.userInfo;
 						else if (payload.patientId || payload.id || payload.userId) userObj = payload; // 直接是用户对象
 					}
-					// 确保 userObj 为对象后再写入 account
+
 					userObj = (userObj && typeof userObj === 'object') ? userObj : {};
 					userObj.account = account.value;
 					if (token) userStore.setToken(token);
 					storeUser(userObj); userStore.setUser(userObj);
-					// 登录后尝试立即获取并持久化 patientId（若后端登录未返回）
+
 					setTimeout(async () => { try { await userStore.ensurePatientId(); } catch (_) {} }, 0);
 					setTimeout(() => { uni.switchTab({ url: '/pages/tabbar/HomePage' }); }, 500);
 				} else {

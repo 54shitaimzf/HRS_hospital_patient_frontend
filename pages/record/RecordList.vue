@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y class="container">
 		<view class="record-card" v-for="item in records" :key="item.id">
 			<view class="header-row">
@@ -71,7 +71,7 @@
 		const index = records.value.findIndex((r) => r.id === id)
 		if (index !== -1) {
 			records.value[index].status = '已取消'
-			// 这里可以扩展调用接口逻辑
+
 			uni.showToast({
 				title: '挂号已取消',
 				icon: 'success',
@@ -91,7 +91,7 @@
 		font-family: "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
 	}
 
-	/* 卡片整体 */
+	
 	.record-card {
 		background: #ffffff;
 		border-radius: 20rpx;
@@ -103,7 +103,7 @@
 		margin-bottom: 20rpx;
 	}
 
-	/* 头部：科室 和 状态 */
+	
 	.header-row {
 		display: flex;
 		flex-direction: row;
@@ -132,7 +132,7 @@
 		background-color: #fff1f0;
 	}
 
-	/* 信息行 */
+	
 	.info-row {
 		display: flex;
 		flex-direction: row;
@@ -160,7 +160,7 @@
 		font-weight: 700;
 	}
 
-	/* 取消按钮 */
+	
 	.cancel-btn {
 		align-self: flex-end;
 		background-color: #ff4d4f;

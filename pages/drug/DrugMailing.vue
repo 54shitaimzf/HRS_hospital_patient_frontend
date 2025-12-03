@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="container">
 		<view class="banner">
 			<text class="banner-title">💊 药品邮寄服务</text>

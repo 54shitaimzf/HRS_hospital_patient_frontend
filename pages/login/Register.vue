@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="container">
 		<view class="form-box">
 			<view class="header">

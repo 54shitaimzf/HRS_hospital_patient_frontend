@@ -88,18 +88,17 @@ export async function fetchRegistrations({ patientId, page = 1, pageSize = 20, s
   }
 }
 
-export async function cancelRegistration({ scheduleRecordId }) {
-  if (!scheduleRecordId) return Promise.reject({ message: '缺少 scheduleRecordId' });
+export async function cancelRegistration({ patientId, scheduleRecordId }) {
+  if (!patientId || !scheduleRecordId) return Promise.reject({ message: '缺少 patientId 或 scheduleRecordId' });
   try {
-    // 假设 API 是 PUT /api/registrations/cancel/{id}
-    // 如果是其他如 DELETE /api/registrations/{id}，则用 api.del
-    const res = await api.post(`/api/registrations/cancel/${scheduleRecordId}`);
+    // 根据 API.md 文档，使用 DELETE /api/registrations
+    const res = await api.del('/api/registrations', { patientId, scheduleRecordId });
     if (res.statusCode >= 200 && res.statusCode < 300) {
       uni.showToast({ title: '取消成功', icon: 'success' });
       return { success: true, raw: res };
     }
     // 处理业务失败
-    const msg = res.data?.msg || '取消失败';
+    const msg = res.data?.msg || res.data?.message || '取消失败';
     uni.showToast({ title: msg, icon: 'none' });
     return Promise.reject({ message: msg, raw: res });
   } catch (err) {
@@ -159,18 +158,104 @@ export async function cancelWaitingRegistration({ waitingId, patientId }) {
   }
 }
 
-/**
- * ===================== 环境切换说明 =====================
- * 通过 setServerMode('mock' | 'prod') 或直接 uni.setStorageSync('serverMode','mock') 切换。
- * 真实后端地址请在 config/server.js 中修改 SERVER_PROD。
- * 所有通过 request 封装的调用都会自动根据 serverMode 选择 BASE_URL。
- * 示例:
- *   import { setServerMode, currentServerMode } from '@/utils/api.js'
- *   setServerMode('mock')      // 切换到本地模拟
- *   setServerMode('prod')      // 切换到生产
- *   console.log(currentServerMode())
- * =========================================================
- */
+export async function fetchDepartments() {
+  try {
+    const res = await api.get('/api/departments');
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const list = Array.isArray(payload) ? payload : (payload?.items || []);
+      return { list, raw: res };
+    }
+    return Promise.reject({ message: '加载科室失败', raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '加载科室失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchRegistrationDoctors({ departmentId, date }) {
+  if (!departmentId) return Promise.reject({ message: '缺少 departmentId' });
+  if (!date) return Promise.reject({ message: '缺少 date' });
+  try {
+    const res = await api.get('/api/registration/doctors', { departmentId, date });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const list = Array.isArray(payload) ? payload : (payload?.items || []);
+      return { list, raw: res };
+    }
+    return Promise.reject({ message: '加载医生排班失败', raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '加载医生排班失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchDoctorDetail(doctorId) {
+  if (!doctorId) return Promise.reject({ message: '缺少 doctorId' });
+  try {
+    const res = await api.get(`/api/doctors/${doctorId}`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      return { doctor: payload, raw: res };
+    }
+    return Promise.reject({ message: '获取医生详情失败', raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取医生详情失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchPatientId({ account }) {
+  if (!account) return Promise.reject({ message: '缺少 account' });
+  try {
+    const res = await api.get('/user/patient-id', { account });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const patientId = typeof payload === 'string' ? payload : payload;
+      return { patientId, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '获取患者ID失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取患者ID失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function createRegistration({ patientId, scheduleRecordId, confirm = true }) {
+  if (!patientId) return Promise.reject({ message: '缺少 patientId' });
+  if (!scheduleRecordId) return Promise.reject({ message: '缺少 scheduleRecordId' });
+  const body = { patientId, scheduleRecordId, confirm };
+  try {
+    const res = await api.post('/api/registrations', body);
+    if (res.statusCode === 200 || (res.statusCode >= 200 && res.statusCode < 300)) {
+      const payload = res.data?.data ?? res.data;
+      return { record: payload, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '创建挂号失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '创建挂号失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchRegistrationByKey({ patientId, scheduleRecordId }) {
+  if (!patientId) return Promise.reject({ message: '缺少 patientId' });
+  if (!scheduleRecordId) return Promise.reject({ message: '缺少 scheduleRecordId' });
+  try {
+    const res = await api.get('/api/registrations/by-key', { patientId, scheduleRecordId });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      return { record: payload, raw: res };
+    }
+    return Promise.reject({ message: '查询挂号失败', raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '查询挂号失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
 
 export function setServerMode(mode) { // 'mock' | 'prod'
   const ok = _setServerMode(mode);
@@ -189,9 +274,14 @@ const _keep = [
   fetchWaitingRegistrations,
   cancelRegistration,
   cancelWaitingRegistration,
+  fetchDepartments,
+  fetchRegistrationDoctors,
+  fetchDoctorDetail,
+  fetchPatientId,
+  createRegistration,
+  fetchRegistrationByKey,
   setServerMode,
   currentServerMode
 ];
 // 标记引用：在开发模式下挂到 globalThis（不会在生产产生功能影响）
-try { if (typeof globalThis !== 'undefined') globalThis.__apiKeep = _keep; } catch(_){}
-
+try { if (typeof globalThis !== 'undefined') globalThis.__apiKeep = _keep; } catch(_){ }

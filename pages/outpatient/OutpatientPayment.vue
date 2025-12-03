@@ -1,11 +1,11 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y class="container">
-		<!-- 顶部 Banner -->
+		
 		<view class="banner">
 			<text class="banner-title">💳 门诊缴费中心</text>
 		</view>
 
-		<!-- 缴费列表 -->
+		
 		<view v-if="paymentList.length" class="card-list">
 			<view class="card" v-for="item in paymentList" :key="item.id">
 				<view class="card-header">
@@ -20,7 +20,7 @@
 			</view>
 		</view>
 
-		<!-- 空状态 -->
+		
 		<view v-else class="empty">
 			<image src="/static/image/empty.png" class="empty-img" />
 			<text class="empty-text">暂无待缴费用项目</text>
@@ -33,7 +33,7 @@
 		ref
 	} from 'vue'
 
-	// 模拟数据（可替换为接口返回）
+
 	const paymentList = ref([{
 			id: 1,
 			project: '心电图检查费',

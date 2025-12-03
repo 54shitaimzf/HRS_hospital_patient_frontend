@@ -1,12 +1,12 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y="true" class="container">
-		<!-- 头部信息 -->
+		
 		<view class="profile-header">
 			<image class="avatar" :src="avatarUrl" mode="aspectFill" />
 			<text class="username">{{ username }}</text>
 		</view>
 
-		<!-- 功能列表 -->
+		
 		<view class="card" @click="goToProfileEdit">
 			<text class="card-title">个人资料</text>
 			<text class="card-desc">查看和编辑个人信息</text>
@@ -15,6 +15,12 @@
 		<view class="card" @click="goToRegistrations">
 			<text class="card-title">我的挂号</text>
 			<text class="card-desc">查看预约/已取消等挂号记录</text>
+		</view>
+
+		
+		<view class="card" @click="goToExtraApplyList">
+			<text class="card-title">我的加号</text>
+			<text class="card-desc">查看加号申请记录</text>
 		</view>
 
 		<view class="card" @click="goToOrders">
@@ -48,6 +54,10 @@
 		uni.navigateTo({
 			url: '/pages/me/RegistrationList'
 		})
+	}
+
+	const goToExtraApplyList = () => {
+		uni.navigateTo({ url: '/pages/his/ExtraApplyList' })
 	}
 	const goToOrders = () => {
 		uni.navigateTo({
@@ -89,7 +99,7 @@
 		align-items: center;
 		margin-bottom: 60rpx;
 		padding-top: 40rpx;
-		/* 头像浮动效果 */
+		
 		animation: float 4s ease-in-out infinite;
 	}
 
@@ -123,7 +133,7 @@
 		letter-spacing: 1rpx;
 	}
 
-	/* 卡片样式 */
+	
 	.card {
 		background-color: white;
 		border-radius: 24rpx;
@@ -160,7 +170,7 @@
 		margin-left: 10rpx;
 	}
 
-	/* 退出登录按钮 */
+	
 	.logout-btn {
 		width: 100%;
 		padding: 20rpx 0;

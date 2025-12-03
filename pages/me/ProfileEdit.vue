@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="container">
 		<text class="title">编辑个人资料</text>
 		<form @submit.prevent="saveProfile">
@@ -33,7 +33,7 @@
 			title: '保存成功',
 			icon: 'success'
 		})
-		// 这里可以调用接口保存数据
+
 		uni.navigateBack()
 	}
 </script>

@@ -1,13 +1,13 @@
-<template>
+﻿<template>
 	<view class="chat-container">
-		<!-- 聊天内容 -->
+		
 		<scroll-view scroll-y class="chat-content" :scroll-into-view="scrollTo">
 			<view v-for="(msg, index) in messages" :key="index" :id="'msg-' + index" class="message" :class="msg.from">
 				<view class="bubble">{{ msg.text }}</view>
 			</view>
 		</scroll-view>
 
-		<!-- 底部输入栏 -->
+		
 		<view class="chat-input-area">
 			<input v-model="inputText" class="chat-input" placeholder="请输入您的症状或问题..." confirm-type="send"
 				@confirm="sendMessage" />
@@ -43,7 +43,7 @@
 			scrollTo.value = "msg-" + index;
 			await new Promise((resolve) => setTimeout(resolve, 40)); // 40ms/char 打字效果
 		}
-		// 最终滚动到底部
+
 		nextTick(() => {
 			scrollTo.value = "msg-" + index;
 		});
@@ -52,7 +52,7 @@
 	const sendMessage = () => {
 		if (!inputText.value.trim()) return;
 
-		// 用户消息
+
 		messages.value.push({
 			from: "user",
 			text: inputText.value
@@ -60,12 +60,12 @@
 		const question = inputText.value;
 		inputText.value = "";
 
-		// 滚动到底部显示用户消息
+
 		nextTick(() => {
 			scrollTo.value = "msg-" + (messages.value.length - 1);
 		});
 
-		// 模拟AI回答（替换成接口请求即可）
+
 		setTimeout(() => {
 			const answer =
 				"根据您描述的症状，建议多休息，保持水分。如有严重不适，请及时就医。";

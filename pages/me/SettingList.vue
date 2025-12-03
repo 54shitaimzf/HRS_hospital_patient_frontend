@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="container">
 		<text class="title">设置</text>
 		<view class="setting-item" @click="changePassword">

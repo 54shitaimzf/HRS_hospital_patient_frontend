@@ -15,6 +15,9 @@ let users = [
   { account: 'testuser', password: '123456' }
 ]; // 用户数据
 
+// 新增：加号申请内存数据
+let extraApplies = []; // 存放加号申请记录
+
 // Updated doctorList with detailed information based on the API documentation
 const doctorList = [
   {
@@ -67,6 +70,48 @@ const doctorList = [
   }
 ];
 
+// Minimal addition: departments list so we can resolve department names
+const departments = [
+  {
+    id: 'DEP001',
+    name: '内科',
+    subDepartments: [
+      { id: 'DEP005', name: '心内科门诊' },
+      { id: 'DEP006', name: '肾内科门诊' },
+      { id: 'DEP007', name: '血液科门诊' },
+      { id: 'DEP008', name: '感染内科门诊' },
+      { id: 'DEP009', name: '肝炎门诊' }
+    ]
+  },
+  {
+    id: 'DEP002',
+    name: '外科',
+    subDepartments: [
+      { id: 'DEP010', name: '普外科门诊' },
+      { id: 'DEP011', name: '骨科门诊' }
+    ]
+  }
+];
+
+// helper to find doctor name by id
+function findDoctorNameById(id) {
+  const d = doctorList.find(doc => doc.doctorId === id)
+  return d ? d.name : id
+}
+// helper to find department name by id (search root and subDepartments)
+function findDepartmentNameById(id) {
+  if (!id) return id
+  const root = departments.find(dep => dep.id === id)
+  if (root) return root.name
+  for (const dep of departments) {
+    if (dep.subDepartments && dep.subDepartments.length) {
+      const sub = dep.subDepartments.find(s => s.id === id)
+      if (sub) return sub.name
+    }
+  }
+  return id
+}
+
 // 生成示例患者与 token 验证（简单跳过）
 function ensureDemoData() {
   if (registrations.length === 0) {
@@ -78,7 +123,51 @@ function ensureDemoData() {
       registerTime: new Date().toISOString(),
       status: '已预约',
       departmentId: 'DEP001',
+      departmentName: findDepartmentNameById('DEP001'),
       doctorId: 'DOC001'
+    });
+    // 增加一条示例记录，确保前端能看到多条
+    registrations.push({
+      patientId: 'PAT0001',
+      scheduleRecordId: 'SCH1002',
+      scheduleDate: new Date().toISOString().split('T')[0],
+      timePeriodName: '下午',
+      registerTime: new Date().toISOString(),
+      status: '已预约',
+      departmentId: 'DEP002',
+      departmentName: findDepartmentNameById('DEP002'),
+      doctorId: 'DOC002',
+      doctorName: findDoctorNameById('DOC002')
+    });
+  }
+  // seed some extra-apply demo records that correspond to existing doctors/patients
+  if (extraApplies.length === 0) {
+    const today = new Date().toISOString().split('T')[0];
+    extraApplies.push({
+      id: 'EAPPLY001',
+      patientId: 'PAT0001',
+      departmentId: 'DEP001',
+      departmentName: findDepartmentNameById('DEP001'),
+      doctorId: 'DOC003',
+      doctorName: findDoctorNameById('DOC003'),
+      appointmentDate: today,
+      reason: '临时加号，等待当天就诊',
+      status: '待处理',
+      createTime: new Date().toISOString()
+    });
+    // an older record
+    const yesterday = new Date(Date.now() - 24*3600*1000).toISOString().split('T')[0];
+    extraApplies.push({
+      id: 'EAPPLY002',
+      patientId: 'PAT0001',
+      departmentId: 'DEP002',
+      departmentName: findDepartmentNameById('DEP002'),
+      doctorId: 'DOC002',
+      doctorName: findDoctorNameById('DOC002'),
+      appointmentDate: yesterday,
+      reason: '复诊请求',
+      status: '已拒绝',
+      createTime: new Date(Date.now() - 36*3600*1000).toISOString()
     });
   }
 }
@@ -101,7 +190,13 @@ app.get('/api/registrations', (req, res) => {
   const ps = Number(pageSize);
   const start = (p - 1) * ps;
   const paged = list.slice(start, start + ps);
-  res.json({ page: p, pageSize: ps, total: list.length, items: paged });
+  // 补充 doctorName / departmentName，避免前端只显示 id
+  const enhanced = paged.map(item => ({
+    ...item,
+    doctorName: item.doctorName || findDoctorNameById(item.doctorId),
+    departmentName: item.departmentName || findDepartmentNameById(item.departmentId)
+  }));
+  res.json({ page: p, pageSize: ps, total: list.length, items: enhanced });
 });
 
 // 预约挂号
@@ -126,16 +221,31 @@ app.post('/api/registrations', (req, res) => {
     }
   }
 
-  registrations.push({
+  // 插入时同时写入 doctorName 与 departmentName，避免前端二次查询
+  const newRecord = {
     patientId,
     scheduleRecordId,
     scheduleDate: new Date().toISOString().split('T')[0],
     timePeriodName: '下午',
     registerTime: new Date().toISOString(),
-    status: '已预约',
-    departmentId: 'DEP002',
-    doctorId: 'DOC002'
-  });
+    status: '已预约'
+  };
+  // 尝试解析 departmentId/doctorId 从 schedule 或请求（如果前端未提供，这里保持简单）
+  // 若无法解析则保留 id 字段为占位
+  const matchedDoctor = doctorList.find(d => d.schedules.some(s => s.scheduleRecordId === scheduleRecordId));
+  if (matchedDoctor) {
+    newRecord.doctorId = matchedDoctor.doctorId;
+    newRecord.doctorName = matchedDoctor.name;
+    // 若 doctor 有 schedule 上没有 departmentId，默认使用根部门名做示例
+    newRecord.departmentId = 'DEP001';
+    newRecord.departmentName = findDepartmentNameById('DEP001');
+  } else {
+    newRecord.doctorId = 'UNKNOWN';
+    newRecord.doctorName = '未知医生';
+    newRecord.departmentId = 'UNKNOWN';
+    newRecord.departmentName = '未知科室';
+  }
+  registrations.push(newRecord);
   res.status(201).json({ code: 201, message: 'created' });
 });
 
@@ -191,7 +301,7 @@ app.get('/api/registrations/waiting/patient', (req, res) => {
 app.delete('/api/registrations/waiting', (req, res) => {
   const { waitingId, patientId } = req.query;
   if (!waitingId || !patientId) return res.status(400).json({ code: 400, message: '缺少参数' });
-  for (const [key, queue] of Object.entries(waitingQueueBySchedule)) {
+  for (const queue of Object.values(waitingQueueBySchedule)) {
     const idx = queue.findIndex(w => w.waitingId === waitingId && w.patientId === patientId);
     if (idx !== -1) {
       queue[idx].status = '已取消';
@@ -203,21 +313,21 @@ app.delete('/api/registrations/waiting', (req, res) => {
 
 // 简单医生排班模拟
 app.get('/api/registration/doctors', (req, res) => {
-  const { departmentId, date } = req.query;
-  const schedules = doctorList.map(doc => ({
-    doctorId: doc.doctorId,
-    doctorName: doc.name,
-    doctorTitle: doc.title,
-    schedules: doc.schedules.map(s => ({
-      scheduleRecordId: s.scheduleRecordId,
-      timePeriodName: s.timePeriodName,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      registrationFee: s.registrationFee,
-      leftSourceCount: s.leftSourceCount
-    }))
-  }));
-  res.json(schedules);
+  // Accepts optional query but not required for mock; return all schedules
+   const schedules = doctorList.map(doc => ({
+     doctorId: doc.doctorId,
+     doctorName: doc.name,
+     doctorTitle: doc.title,
+     schedules: doc.schedules.map(s => ({
+       scheduleRecordId: s.scheduleRecordId,
+       timePeriodName: s.timePeriodName,
+       startTime: s.startTime,
+       endTime: s.endTime,
+       registrationFee: s.registrationFee,
+       leftSourceCount: s.leftSourceCount
+     }))
+   }));
+   res.json(schedules);
 });
 
 // 医生详情模拟
@@ -227,27 +337,7 @@ app.get('/api/doctors/:id', (req, res) => {
 
 // 获取科室列表
 app.get('/api/departments', (req, res) => {
-  res.json([
-    {
-      "id": "DEP001",
-      "name": "内科",
-      "subDepartments": [
-        { "id": "DEP005", "name": "心内科门诊" },
-        { "id": "DEP006", "name": "肾内科门诊" },
-        { "id": "DEP007", "name": "血液科门诊" },
-        { "id": "DEP008", "name": "感染内科门诊" },
-        { "id": "DEP009", "name": "肝炎门诊" }
-      ]
-    },
-    {
-      "id": "DEP002",
-      "name": "外科",
-      "subDepartments": [
-        { "id": "DEP010", "name": "普外科门诊" },
-        { "id": "DEP011", "name": "骨科门诊" }
-      ]
-    }
-  ]);
+  res.json(departments);
 });
 
 // 查询单条挂号（按复合键）
@@ -267,7 +357,9 @@ app.get('/api/registrations/by-key', (req, res) => {
       "registerTime": "2025-11-15 09:30:12",
       "status": "已预约",
       "doctorId": "DOC0023",
+      "doctorName": findDoctorNameById('DOC0023') || '未知医生',
       "departmentId": "DEP005",
+      "departmentName": findDepartmentNameById('DEP005') || '未知科室',
       "scheduleDate": "2025-11-15",
       "timePeriodName": "上午"
     });
@@ -448,6 +540,69 @@ app.get('/api/inspections/:id', (req, res) => {
         ],
         conclusion: '各项指标在正常范围内。'
     });
+});
+
+// 创建加号申请
+app.post('/api/extra-apply', (req, res) => {
+  const { patientId, departmentId, doctorId, appointmentDate, reason } = req.body || {};
+  if (!patientId || !departmentId || !doctorId || !appointmentDate || !reason) {
+    return res.status(400).json({ code: 400, message: '参数缺失' });
+  }
+  // 只允许当天申请（按 apply_regist.md）
+  const today = new Date().toISOString().split('T')[0];
+  if (appointmentDate !== today) {
+    return res.status(400).json({ code: 400, message: 'appointmentDate 必须为当天' });
+  }
+
+  // 生成唯一ID
+  const id = 'EAPPLY' + String(Math.floor(Math.random() * 900000) + 100000);
+  const record = {
+    id,
+    patientId,
+    departmentId,
+    departmentName: findDepartmentNameById(departmentId),
+    doctorId,
+    doctorName: findDoctorNameById(doctorId),
+    appointmentDate,
+    reason,
+    status: '待处理',
+    createTime: new Date().toISOString()
+  };
+  extraApplies.push(record);
+  // 返回创建的记录（并使用 201 状态）
+  return res.status(201).json({ code: 201, message: 'created', data: record });
+});
+
+// 按患者列出加号申请
+app.get('/api/extra-apply', (req, res) => {
+  // 支持带 patientId 查询，也支持无参返回全部（便于调试）
+  const { patientId } = req.query || {};
+  if (!patientId) {
+    // return all, but enhance with names to be safe
+    const all = extraApplies.map(a => ({ ...a,
+      doctorName: a.doctorName || findDoctorNameById(a.doctorId),
+      departmentName: a.departmentName || findDepartmentNameById(a.departmentId)
+    }))
+    return res.json(all);
+  }
+  const list = extraApplies.filter(a => a.patientId === patientId);
+  const listWithNames = list.map(a => ({ ...a,
+    doctorName: a.doctorName || findDoctorNameById(a.doctorId),
+    departmentName: a.departmentName || findDepartmentNameById(a.departmentId)
+  }))
+  return res.json(listWithNames);
+});
+
+// 查询申请详情
+app.get('/api/extra-apply/:id', (req, res) => {
+  const { id } = req.params || {};
+  const item = extraApplies.find(a => a.id === id);
+  if (!item) return res.status(404).json({ code: 404, message: '未找到记录' });
+  const enhanced = { ...item,
+    doctorName: item.doctorName || findDoctorNameById(item.doctorId),
+    departmentName: item.departmentName || findDepartmentNameById(item.departmentId)
+  }
+  return res.json(enhanced);
 });
 
 const PORT = 8082;

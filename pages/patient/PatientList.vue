@@ -1,4 +1,4 @@
-<template>
+﻿<template>
 	<view class="container">
 		<view class="header">
 			<text class="title">就诊人管理</text>
@@ -15,7 +15,7 @@
 			<button @click="deletePatient(index)" type="warn" size="mini">删除</button>
 		</view>
 
-		<!-- 添加就诊人表单 -->
+		
 		<uni-popup ref="popup" :show="showAdd" @close="showAdd = false">
 			<view class="popup-form">
 				<input v-model="form.name" placeholder="姓名" />

@@ -1,6 +1,6 @@
-<template>
+﻿<template>
 	<view class="container">
-		<!-- 日期选择 -->
+		
 		<view class="date-selector">
 			<picker mode="date" :value="selectedDate" :start="startDate" :end="endDate" @change="onDateChange">
 				<view class="picker-view">
@@ -10,7 +10,7 @@
 			</picker>
 		</view>
 
-		<!-- 排班列表 -->
+		
 		<scroll-view scroll-y="true" class="schedule-list-scroll">
 			<view v-if="loading" class="loading-state"><text>加载中...</text></view>
 			<view v-else-if="scheduleRecords.length === 0" class="empty-state"><text>暂无排班信息</text></view>
@@ -30,9 +30,12 @@
 							<text class="remain" :class="{ none: item.leftSourceCount === 0 }">剩余: {{ item.leftSourceCount }}</text>
 						</view>
 					</view>
-					<button class="reserve-btn" @click="handleReservation(item)">
-						{{ item.leftSourceCount > 0 ? '预约' : '候补' }}
-					</button>
+					<view class="actions">
+						
+						<button :class="['action-btn', actionClass(item)]" @click="handleAction(item)">
+							{{ actionLabel(item) }}
+						</button>
+					</view>
 				</view>
 			</view>
 		</scroll-view>
@@ -42,9 +45,10 @@
 <script setup>
 	import { ref, computed } from 'vue';
 	import { onLoad, onShow } from '@dcloudio/uni-app';
-	import { getPatientId } from '../../store/userUtil.js';
-	import { useUserStore } from '../../store/user.js'
-	import { api } from '../../utils/api.js'
+	import uniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
+	import { getPatientId } from '../../store/userUtil'
+	import { useUserStore } from '../../store/user'
+	import { api } from '../../utils/api'
 
 	const departmentId = ref('');
 	const departmentName = ref('');
@@ -57,7 +61,7 @@
 	const userStore = useUserStore()
 
 	onLoad((options) => {
-		// 兼容不同入口传参：deptId 可能是 departId 或 id
+
 		const optDeptId = options.deptId || options.departId || options.id;
 		departmentId.value = optDeptId;
 		departmentName.value = decodeURIComponent(options.deptName || options.name || '预约挂号');
@@ -68,7 +72,7 @@
 	});
 	onShow(() => { fetchSchedules(); });
 
-	// 解析科室ID为字符串编码（如 DEP013）
+
 	function parseDepartment(raw) {
 		if (!raw) return { code: '' }
 		const m = String(raw).match(/(DEP)?(\d+)/i)
@@ -102,7 +106,7 @@
 
 	const onDateChange = (e) => { selectedDate.value = e.detail.value; fetchSchedules(); };
 
-	// 扁平化排班记录（清理旧字段，使用 scheduleRecordId 与 API 对齐）
+
 	const scheduleRecords = computed(() => {
 		return doctorSchedules.value.flatMap(doc => (doc.schedules || []).map(s => ({
 			doctorId: doc.doctorId || doc.id,
@@ -117,7 +121,7 @@
 		})));
 	});
 
-	// 医生详情（保留，与后端字段 doc.title 对齐）
+
 	const showDoctorDetail = async (item) => {
 		try {
 			const res = await api.get(`/api/doctors/${item.doctorId}`);
@@ -136,17 +140,40 @@
 		}
 	};
 
-	// 简化校验：仅排除包含中文或空值的情况
+
 	function isValidCode(val) {
 		return typeof val === 'string' && /^[A-Za-z0-9_-]+$/.test(val)
 	}
 
-	function handleReservation(item) {
+	function actionLabel(item) {
+
+		const today = new Date().toISOString().split('T')[0]
+		if (Number(item.leftSourceCount) > 0) return '预约'
+		if (selectedDate.value === today && Number(item.leftSourceCount) === 0) return '加号'
+		return '候补'
+	}
+
+	function actionClass(item) {
+
+		const label = actionLabel(item)
+		if (label === '预约') return 'btn-reserve'
+		if (label === '加号') return 'btn-extra'
+		return 'btn-waiting'
+	}
+
+	function handleAction(item) {
+		const today = new Date().toISOString().split('T')[0]
 		if (item.leftSourceCount > 0) {
-			reserve(item);
-		} else {
-			goToWaiting(item);
+			reserve(item)
+			return
 		}
+		if (selectedDate.value === today && Number(item.leftSourceCount) === 0) {
+
+			goExtraApply(item)
+			return
+		}
+
+		goToWaiting(item)
 	}
 
 	function goToWaiting(item) {
@@ -162,6 +189,18 @@
 		uni.navigateTo({
 			url: `/pages/his/WaitingRegistration?${params}`
 		});
+	}
+
+
+	function goExtraApply(item) {
+		const params = [
+			`deptId=${encodeURIComponent(departmentId.value || '')}`,
+			`deptName=${encodeURIComponent(departmentName.value || '')}`,
+			`doctorId=${encodeURIComponent(item.doctorId || '')}`,
+			`doctorName=${encodeURIComponent(item.doctorName || '')}`,
+			`scheduleDate=${encodeURIComponent(selectedDate.value)}`
+		].join('&');
+		uni.navigateTo({ url: `/pages/his/ExtraApply?${params}` });
 	}
 
 	async function reserve(item) {
@@ -184,7 +223,6 @@
 						const response = await api.post('/api/registrations', { patientId, scheduleRecordId: item.scheduleRecordId, confirm: true })
 						const apiCode = response?.data?.code
 						const apiMsg = response?.data?.msg || response?.data?.message
-						const apiData = response?.data?.data || response?.data
 						const statusOk = response.statusCode === 200 || response.statusCode === 201 || apiCode === 200
 						if (statusOk) {
 							uni.showToast({ title: '预约成功', icon: 'success' })
@@ -202,12 +240,12 @@
 </script>
 
 <style scoped>
-/* 调整后的样式，保证“每个排班一行”清晰 */
+
 .container { padding:16px; }
 .date-selector { margin-bottom:12px; }
 .picker-view { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#f5f5f5; border-radius:8px; }
 .date-text { font-size:15px; color:#333; }
-.schedule-list-scroll { max-height: calc(100vh - 120px); /* 动态计算高度 */ }
+.schedule-list-scroll { max-height: calc(100vh - 120px);  }
 .loading-state, .empty-state { display:flex; align-items:center; justify-content:center; height:100px; color:#888; }
 .schedule-list { display:block; }
 .schedule-item {
@@ -232,7 +270,7 @@
 	flex-direction: column;
 	justify-content: center;
 	cursor: pointer;
-	width: 80px; /* 固定宽度 */
+	width: 80px; 
 }
 .doctor-name { font-size:16px; font-weight:600; color:#222; }
 .doctor-title { font-size:13px; color:#666; margin-top:4px; }
@@ -262,18 +300,33 @@
 .remain { color:#2e7d32; }
 .remain.none { color:#d32f2f; font-weight: bold; }
 
-.reserve-btn {
+
+.actions {
+	display:flex;
+	flex-direction:column;
+	gap:8px;
 	flex-shrink:0;
-	width:72px;
-	height:36px;
-	line-height:36px;
-	font-size:14px;
-	padding: 0;
-	margin: 0;
-	background:#1890ff;
-	color:#fff;
-	border:none;
-	border-radius:6px;
+	align-items:flex-end;
 }
+.action-btn {
+	min-width:110px;
+	padding: 0 12px;
+	height:44px;
+	line-height:44px;
+	font-size:16px;
+	padding-left:18px;
+	padding-right:18px;
+	margin: 0;
+	border:none;
+	border-radius:8px;
+	color:#fff;
+	cursor:pointer;
+	display:inline-block;
+	text-align:center;
+}
+.btn-reserve { background: linear-gradient(135deg,#1a73e8 0%,#004080 100%); }
+.btn-extra { background: #6c757d; }
+.btn-waiting { background: #ff7f00; }
 .reserve-btn:disabled { background:#ccc; color:#666; }
 </style>
+

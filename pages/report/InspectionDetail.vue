@@ -1,11 +1,11 @@
-<template>
+﻿<template>
 	<scroll-view scroll-y class="container">
-		<!-- 标题Banner -->
+		
 		<view class="banner">
 			<text class="banner-title">📝 报告详情</text>
 		</view>
 
-		<!-- 报告基础信息 -->
+		
 		<view class="section">
 			<text class="section-title">检查信息</text>
 			<view class="info-item"><text>项目名称：</text><text>{{ report.name }}</text></view>
@@ -14,19 +14,19 @@
 			<view class="info-item"><text>报告时间：</text><text>{{ report.reportDate }}</text></view>
 		</view>
 
-		<!-- 检查结果 -->
+		
 		<view class="section">
 			<text class="section-title">检查结果</text>
 			<text class="section-content">{{ report.result }}</text>
 		</view>
 
-		<!-- 结论建议 -->
+		
 		<view class="section">
 			<text class="section-title">医生结论</text>
 			<text class="section-content">{{ report.conclusion }}</text>
 		</view>
 
-		<!-- 按钮 -->
+		
 		<view class="footer-btn">
 			<button class="main-btn" @click="goBack">返回上一页</button>
 		</view>
@@ -54,7 +54,7 @@
 
 	onLoad((options) => {
 		const reportId = options.id
-		// 模拟数据加载，建议替换为后端接口请求
+
 		if (reportId === '1') {
 			report.value = {
 				id: 1,
