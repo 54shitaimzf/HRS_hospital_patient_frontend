@@ -1,4 +1,4 @@
-﻿<template>
+﻿﻿<template>
 	<view class="login-container">
 		<view class="header">
 			<image src="/static/logo.png" class="logo" />
@@ -37,7 +37,7 @@
 	import { onLoad } from '@dcloudio/uni-app'
 	import { useUserStore } from '../../store/user.js'
 	import { storeUser } from '../../store/userUtil.js'
-	import { api } from '../../utils/api.js'
+	import { loginUser } from '../../utils/api.js'
 	const userStore = useUserStore()
 	const account = ref('');
 	const password = ref('');
@@ -56,39 +56,15 @@
 			return uni.showToast({ title: '请输入账户名和密码', icon: 'none' });
 		}
 		try {
-			const res = await api.post('/user/login', { account: account.value, password: password.value });
-			if (res && res.data) {
-				if (res.data.code === '200' || res.data.code === 200) {
-					uni.showToast({ title: '登录成功', icon: 'success' });
-
-					const payload = (res.data && res.data.data !== undefined) ? res.data.data : res.data;
-					let token = '';
-					let userObj = {};
-					if (typeof payload === 'string') {
-
-						token = payload;
-					} else if (payload && typeof payload === 'object') {
-						if (typeof payload.token === 'string') token = payload.token;
-						if (payload.user && typeof payload.user === 'object') userObj = payload.user;
-						else if (payload.userInfo && typeof payload.userInfo === 'object') userObj = payload.userInfo;
-						else if (payload.patientId || payload.id || payload.userId) userObj = payload; // 直接是用户对象
-					}
-
-					userObj = (userObj && typeof userObj === 'object') ? userObj : {};
-					userObj.account = account.value;
-					if (token) userStore.setToken(token);
-					storeUser(userObj); userStore.setUser(userObj);
-
-					setTimeout(async () => { try { await userStore.ensurePatientId(); } catch (_) {} }, 0);
-					setTimeout(() => { uni.switchTab({ url: '/pages/tabbar/HomePage' }); }, 500);
-				} else {
-					uni.showToast({ title: res.data.message || '登录失败，请检查您的账户或密码', icon: 'none' });
-				}
-			} else {
-				uni.showToast({ title: '网络错误或服务器响应异常', icon: 'none' });
-			}
+			const { token, userInfo } = await loginUser({ account: account.value, password: password.value });
+			const userObj = { ...(userInfo || {}), account: account.value };
+			if (token) userStore.setToken(token);
+			storeUser(userObj);
+			userStore.setUser(userObj);
+			setTimeout(async () => { try { await userStore.ensurePatientId(); } catch (_) {} }, 0);
+			setTimeout(() => { uni.switchTab({ url: '/pages/tabbar/HomePage' }); }, 500);
 		} catch (error) {
-			uni.showToast({ title: '网络请求失败', icon: 'none' });
+			if (!error?.silent) uni.showToast({ title: error?.message || '登录失败', icon: 'none' });
 			console.error('Login request failed:', error);
 		}
 	};

@@ -24,6 +24,34 @@ function handleUnauthorized() {
   }, 0);
 }
 
+function toQueryPairs(params = {}) {
+  const pairs = [];
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    if (Array.isArray(value)) {
+      value.forEach((v) => {
+        if (v === undefined || v === null || v === '') return;
+        pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+      });
+    } else {
+      const normalized = typeof value === 'object' ? JSON.stringify(value) : value;
+      pairs.push(`${encodeURIComponent(key)}=${encodeURIComponent(normalized)}`);
+    }
+  });
+  return pairs;
+}
+
+function appendQueryParams(url, params = {}) {
+  const querySegments = toQueryPairs(params);
+  if (!querySegments.length) return url;
+  const joiner = url.includes('?') ? '&' : '?';
+  return `${url}${joiner}${querySegments.join('&')}`;
+}
+
+function isPlainObject(val) {
+  return Object.prototype.toString.call(val) === '[object Object]';
+}
+
 export function request({ url, method = 'GET', data = {}, header = {} }) {
   return new Promise((resolve, reject) => {
     const token = getToken();
@@ -54,7 +82,15 @@ export function request({ url, method = 'GET', data = {}, header = {} }) {
 export const api = {
   get: (url, params = {}, header = {}) => request({ url, method: 'GET', data: params, header }),
   post: (url, body = {}, header = {}) => request({ url, method: 'POST', data: body, header }),
-  del: (url, params = {}, header = {}) => request({ url, method: 'DELETE', data: params, header }),
+  del: (url, payload = {}, header = {}, options = {}) => {
+    const useBody = options.asBody === true || !isPlainObject(payload);
+    if (useBody) {
+      return request({ url, method: 'DELETE', data: payload, header });
+    }
+    const finalUrl = appendQueryParams(url, payload);
+    return request({ url: finalUrl, method: 'DELETE', header });
+  },
+  put: (url, body = {}, header = {}) => request({ url, method: 'PUT', data: body, header }),
 };
 
 export async function fetchRegistrations({ patientId, page = 1, pageSize = 20, status, date, fromDate, toDate }) {
@@ -158,6 +194,63 @@ export async function cancelWaitingRegistration({ waitingId, patientId }) {
   }
 }
 
+export async function createWaitingRegistration({ patientId, scheduleRecordId }) {
+  if (!patientId || !scheduleRecordId) return Promise.reject({ message: '缺少 patientId 或 scheduleRecordId' });
+  try {
+    const res = await api.post('/api/registrations/waiting', { patientId, scheduleRecordId });
+    if (res.statusCode === 201 || (res.statusCode >= 200 && res.statusCode < 300)) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '候补申请已提交', icon: 'success' });
+      return { waiting: payload, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '候补申请失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '候补申请失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchWaitingQueue({ scheduleRecordId }) {
+  if (!scheduleRecordId) return Promise.reject({ message: '缺少 scheduleRecordId' });
+  try {
+    const res = await api.get('/api/registrations/waiting', { scheduleRecordId });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const waitingList = payload.waitingList || [];
+      return {
+        waitingList,
+        waitingCount: payload.waitingCount ?? waitingList.length,
+        scheduleRecordId: payload.scheduleRecordId || scheduleRecordId,
+        raw: res
+      };
+    }
+    const msg = res.data?.message || res.data?.msg || '获取候补队列失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取候补队列失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function confirmWaitingRegistration({ waitingId }) {
+  if (!waitingId) return Promise.reject({ message: '缺少 waitingId' });
+  try {
+    const res = await api.post('/api/registrations/waiting/confirm', { waitingId });
+    if (res.statusCode === 200 || (res.statusCode >= 200 && res.statusCode < 300)) {
+      const payload = res.data?.data ?? res.data;
+      return { result: payload, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '候补转正失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '候补转正失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export async function fetchDepartments() {
   try {
     const res = await api.get('/api/departments');
@@ -222,6 +315,54 @@ export async function fetchPatientId({ account }) {
   }
 }
 
+export async function loginUser({ account, password }) {
+  if (!account || !password) return Promise.reject({ message: '缺少账号或密码' });
+  try {
+    const res = await api.post('/user/login', { account, password });
+    if (res?.data && (res.data.code === 200 || res.data.code === '200')) {
+      const payload = res.data?.data ?? res.data;
+      let token = '';
+      let userInfo = {};
+      if (typeof payload === 'string') {
+        token = payload;
+      } else if (payload && typeof payload === 'object') {
+        if (typeof payload.token === 'string') token = payload.token;
+        if (payload.user && typeof payload.user === 'object') userInfo = payload.user;
+        else if (payload.userInfo && typeof payload.userInfo === 'object') userInfo = payload.userInfo;
+        else userInfo = payload;
+      }
+      uni.showToast({ title: '登录成功', icon: 'success' });
+      return { token, userInfo, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '登录失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '登录失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function registerUser(registerData = {}) {
+  if (!registerData.userAccount || !registerData.userPassword) {
+    return Promise.reject({ message: '注册信息不完整' });
+  }
+  try {
+    const res = await api.post('/user/register', registerData);
+    if (res?.data && (res.data.code === 200 || res.data.code === '200')) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '注册成功', icon: 'success' });
+      return { payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '注册失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '注册失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export async function createRegistration({ patientId, scheduleRecordId, confirm = true }) {
   if (!patientId) return Promise.reject({ message: '缺少 patientId' });
   if (!scheduleRecordId) return Promise.reject({ message: '缺少 scheduleRecordId' });
@@ -257,6 +398,237 @@ export async function fetchRegistrationByKey({ patientId, scheduleRecordId }) {
   }
 }
 
+export async function submitExtraApply({ patientId, departmentId, doctorId, appointmentDate, reason }) {
+  if (!patientId || !departmentId || !doctorId || !appointmentDate || !reason) {
+    return Promise.reject({ message: '加号申请缺少必填参数' });
+  }
+  const body = { patientId, departmentId, doctorId, appointmentDate, reason };
+  try {
+    const res = await api.post('/api/extra-apply', body);
+    if (res.statusCode === 201 || (res.statusCode >= 200 && res.statusCode < 300)) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '加号申请已提交', icon: 'success' });
+      return { apply: payload, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '加号申请失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '加号申请失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchExtraApplyDetail(id) {
+  if (!id) return Promise.reject({ message: '缺少申请 ID' });
+  try {
+    const res = await api.get(`/api/extra-apply/${encodeURIComponent(id)}`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      return { apply: payload, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '获取申请详情失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取申请详情失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchExtraApplyList({ patientId }) {
+  if (!patientId) return Promise.reject({ message: '缺少 patientId' });
+  try {
+    const res = await api.get('/api/extra-apply', { patientId });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const list = Array.isArray(payload) ? payload : payload?.items || [];
+      return { list, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '获取加号申请列表失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取加号申请列表失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function submitDoctorReview({ registrationId, patientId, doctorId, rating, comment, anonymous = false }) {
+  if (!registrationId || !patientId || !doctorId) return Promise.reject({ message: '缺少必填参数' });
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return Promise.reject({ message: '评分需为 1-5 的整数' });
+  const body = { registrationId, patientId, doctorId, rating, comment, anonymous };
+  try {
+    const res = await api.post('/api/reviews', body);
+    if (res.statusCode === 201 || (res.statusCode >= 200 && res.statusCode < 300)) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '评价成功', icon: 'success' });
+      return { review: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '提交评价失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '提交评价失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchDoctorReviews({ doctorId, page = 1, pageSize = 20 }) {
+  if (!doctorId) return Promise.reject({ message: '缺少 doctorId' });
+  try {
+    const res = await api.get(`/api/doctors/${doctorId}/reviews`, { page, pageSize });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const list = payload.items || [];
+      return {
+        list,
+        page: payload.page ?? page,
+        pageSize: payload.pageSize ?? pageSize,
+        total: payload.total ?? list.length,
+        raw: res
+      };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取评价列表失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取反馈失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchReviewDetail(reviewId) {
+  if (!reviewId) return Promise.reject({ message: '缺少 reviewId' });
+  try {
+    const res = await api.get(`/api/reviews/${reviewId}`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      return { review: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取评价详情失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取评价详情失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchDoctorReviewStat(doctorId) {
+  if (!doctorId) return Promise.reject({ message: '缺少 doctorId' });
+  try {
+    const res = await api.get(`/api/doctors/${doctorId}/reviews/stat`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      return { stat: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取评价统计失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取评价统计失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function submitSystemFeedback({ userId, type, title, description, contact }) {
+  if (!userId || !type) return Promise.reject({ message: '缺少 userId 或 type' });
+  const body = { userId, type, title, description, contact };
+  try {
+    const res = await api.post('/api/feedbacks', body);
+    if (res.statusCode === 201 || (res.statusCode >= 200 && res.statusCode < 300)) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '反馈已提交', icon: 'success' });
+      return { feedback: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '提交反馈失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '提交反馈失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchUserFeedbacks({ userId, page = 1, pageSize = 20 }) {
+  if (!userId) return Promise.reject({ message: '缺少 userId' });
+  try {
+    const res = await api.get('/api/feedbacks', { userId, page, pageSize });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const list = payload.items || [];
+      return {
+        list,
+        page: payload.page ?? page,
+        pageSize: payload.pageSize ?? pageSize,
+        total: payload.total ?? list.length,
+        raw: res
+      };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取反馈列表失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取反馈失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchAdminFeedbacks({ status, type, page = 1, pageSize = 20 } = {}) {
+  try {
+    const params = { page, pageSize };
+    if (status) params.status = status;
+    if (type) params.type = type;
+    const res = await api.get('/api/feedbacks/admin', params);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const list = payload.items || [];
+      return {
+        list,
+        page: payload.page ?? page,
+        pageSize: payload.pageSize ?? pageSize,
+        total: payload.total ?? list.length,
+        raw: res
+      };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取全部反馈失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取全部反馈失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchFeedbackDetail(feedbackId) {
+  if (!feedbackId) return Promise.reject({ message: '缺少 feedbackId' });
+  try {
+    const res = await api.get(`/api/feedbacks/${feedbackId}`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      return { feedback: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取反馈详情失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取反馈详情失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function updateFeedbackStatus({ feedbackId, status, operatorId, comment }) {
+  if (!feedbackId || !status || !operatorId) return Promise.reject({ message: '缺少必填参数' });
+  const body = { status, operatorId, comment };
+  try {
+    const res = await api.put(`/api/feedbacks/${feedbackId}/status`, body);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '状态已更新', icon: 'success' });
+      return { feedback: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '更新状态失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '更新状态失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export function setServerMode(mode) { // 'mock' | 'prod'
   const ok = _setServerMode(mode);
   if (ok) {
@@ -274,12 +646,29 @@ const _keep = [
   fetchWaitingRegistrations,
   cancelRegistration,
   cancelWaitingRegistration,
+  createWaitingRegistration,
+  fetchWaitingQueue,
+  confirmWaitingRegistration,
   fetchDepartments,
   fetchRegistrationDoctors,
   fetchDoctorDetail,
   fetchPatientId,
+  loginUser,
+  registerUser,
   createRegistration,
   fetchRegistrationByKey,
+  submitExtraApply,
+  fetchExtraApplyDetail,
+  fetchExtraApplyList,
+  submitDoctorReview,
+  fetchDoctorReviews,
+  fetchReviewDetail,
+  fetchDoctorReviewStat,
+  submitSystemFeedback,
+  fetchUserFeedbacks,
+  fetchAdminFeedbacks,
+  fetchFeedbackDetail,
+  updateFeedbackStatus,
   setServerMode,
   currentServerMode
 ];

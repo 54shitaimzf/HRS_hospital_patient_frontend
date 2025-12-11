@@ -69,7 +69,11 @@ export const useUserStore = defineStore('user', {
 							return pid;
 						}
 					}
-				} catch (_) { /* ignore and fallback */ }
+					return null; // 如果接口成功但数据不符合预期，返回 null
+				} catch (e) {
+          console.error('Failed to fetch patientId from /user/patient-id:', e);
+		  return null; // 确保异常情况下也返回
+        }
 			}
 			// 兼容其他“当前患者”接口
 			const candidates = ['/api/patients/me', '/api/patient/me', '/api/patients/current'];
@@ -84,7 +88,9 @@ export const useUserStore = defineStore('user', {
 							return pid;
 						}
 					}
-				} catch (_) {}
+				} catch (e) {
+          console.error(`Failed to fetch patientId from fallback URL ${url}:`, e);
+        }
 			}
 			return null;
 		},

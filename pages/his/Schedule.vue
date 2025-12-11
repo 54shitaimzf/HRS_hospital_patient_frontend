@@ -48,7 +48,11 @@
 	import uniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 	import { getPatientId } from '../../store/userUtil'
 	import { useUserStore } from '../../store/user'
-	import { api } from '../../utils/api'
+	import {
+	  fetchRegistrationDoctors,
+	  fetchDoctorDetail,
+	  createRegistration
+	} from '../../utils/api'
 
 	const departmentId = ref('');
 	const departmentName = ref('');
@@ -88,16 +92,12 @@
 		doctorSchedules.value = [];
 		const { code } = parseDepartment(departmentId.value);
 		try {
-			const res = await api.get('/api/registration/doctors', {
+			const { list } = await fetchRegistrationDoctors({
 				departmentId: code || String(departmentId.value),
 				date: selectedDate.value
-			});
+			})
 			if (seq === requestSeq.value) {
-				if (res.statusCode === 200) {
-					doctorSchedules.value = res.data || [];
-				} else {
-					uni.showToast({ title: res.data?.message || '加载失败', icon: 'none' });
-				}
+				doctorSchedules.value = Array.isArray(list) ? list : []
 			}
 		} catch (e) {
 			if (seq === requestSeq.value) uni.showToast({ title: '网络错误', icon: 'none' });
@@ -124,17 +124,13 @@
 
 	const showDoctorDetail = async (item) => {
 		try {
-			const res = await api.get(`/api/doctors/${item.doctorId}`);
-			if (res.statusCode === 200) {
-				const doc = res.data;
-				uni.showModal({
-					title: doc.name || item.doctorName,
-					content: `职称: ${doc.title || item.doctorTitle}\n专长: ${doc.specialty || '暂无'}\n简介: ${doc.details || '暂无'}`,
-					showCancel: false
-				});
-			} else {
-				uni.showToast({ title: '获取医生详情失败', icon: 'none' });
-			}
+			const { doctor } = await fetchDoctorDetail(item.doctorId)
+			const doc = doctor || {}
+			uni.showModal({
+				title: doc.name || item.doctorName,
+				content: `职称: ${doc.title || item.doctorTitle}\n专长: ${doc.specialty || '暂无'}\n简介: ${doc.details || '暂无'}`,
+				showCancel: false
+			});
 		} catch (e) {
 			uni.showToast({ title: '网络错误', icon: 'none' });
 		}
@@ -220,18 +216,17 @@
 			success: async (res) => {
 				if (res.confirm) {
 					try {
-						const response = await api.post('/api/registrations', { patientId, scheduleRecordId: item.scheduleRecordId, confirm: true })
-						const apiCode = response?.data?.code
-						const apiMsg = response?.data?.msg || response?.data?.message
-						const statusOk = response.statusCode === 200 || response.statusCode === 201 || apiCode === 200
-						if (statusOk) {
+						const { record } = await createRegistration({ patientId, scheduleRecordId: item.scheduleRecordId, confirm: true })
+						const resultOk = Boolean(record)
+						if (resultOk) {
 							uni.showToast({ title: '预约成功', icon: 'success' })
 							fetchSchedules()
 						} else {
-							uni.showToast({ title: apiMsg || `预约失败(${apiCode || response.statusCode})`, icon: 'none' })
+							uni.showToast({ title: '预约失败', icon: 'none' })
 						}
 					} catch (err) {
-						uni.showToast({ title: '网络错误，请重试', icon: 'none' })
+						const msg = err?.message || '网络错误，请重试'
+						uni.showToast({ title: msg, icon: 'none' })
 					}
 				}
 			}
@@ -329,4 +324,3 @@
 .btn-waiting { background: #ff7f00; }
 .reserve-btn:disabled { background:#ccc; color:#666; }
 </style>
-

@@ -1,4 +1,4 @@
-﻿<template>
+﻿﻿<template>
   <view class="page-container">
     
     <view class="filters">
@@ -33,16 +33,27 @@
       <view v-for="item in registrations" :key="item.patientId + '_' + item.scheduleRecordId" class="card">
         <view class="card-header">
           <text class="date">{{ item.scheduleDate }} {{ item.timePeriodName }}</text>
-          <text class="status" :class="statusClass(item.status)">{{ item.status }}</text>
+          <text class="status" :class="statusClass(item.status === '预约中' ? '已预约' : item.status)">{{ item.status === '预约中' ? '已预约' : item.status }}</text>
         </view>
-        <view class="line"><text class="label">科室:</text><text class="value">{{ item.departmentId || '—' }}</text></view>
-        <view class="line"><text class="label">医生:</text><text class="value">{{ item.doctorId || '—' }}</text></view>
+        <view class="line"><text class="label">科室:</text><text class="value">{{ item.departmentName || item.departmentId || '—' }}</text></view>
+        <view class="line"><text class="label">医生:</text><text class="value">{{ item.doctorName || item.doctorId || '—' }}</text></view>
         <view class="line"><text class="label">挂号时间:</text><text class="value">{{ formatTime(item.registerTime) }}</text></view>
         <view class="line"><text class="label">记录键:</text><text class="value">{{ item.scheduleRecordId }}</text></view>
         
         <view class="actions">
           <button size="mini" class="detail-btn" @click="viewDetail(item)">详情</button>
-          <button size="mini" class="cancel-btn" v-if="canCancel(item.status)" @click="cancel(item)">取消</button>
+          <button
+            v-if="shouldShowReview(item)"
+            size="mini"
+            class="review-btn"
+            @click="goReview(item)"
+          >评价</button>
+          <button
+            v-else-if="shouldShowCancel(item)"
+            size="mini"
+            class="cancel-btn"
+            @click="cancel(item)"
+          >取消</button>
         </view>
       </view>
 
@@ -66,7 +77,7 @@ const loading = ref(false)
 const error = ref('')
 const refresher = ref(false)
 
-const statusOptions = ['全部', '预约中', '已预约', '已取消', '候补中'];
+const statusOptions = ['全部', '已预约', '已就诊', '已取消', '候补中'];
 const filters = reactive({ status: '全部', fromDate: '', toDate: '' })
 let lastStatusClickTs = 0
 
@@ -83,13 +94,16 @@ function onToDateChange(e) { filters.toDate = e.detail.value; resetAndLoad() }
 function clearDate() { if (filters.fromDate || filters.toDate){ filters.fromDate=''; filters.toDate=''; resetAndLoad(); } }
 
 function statusClass(st){
-  return st === '已取消' ? 'st-cancel' : st === '已预约' ? 'st-ok' : st === '预约中' ? 'st-pending' : st === '候补中' ? 'st-waiting' : 'st-default'
+  return st === '已取消' ? 'st-cancel' : st === '已预约' ? 'st-ok' : st === '预约中' ? 'st-pending' : st === '候补中' ? 'st-waiting' : st === '已就诊' ? 'st-completed' : 'st-default'
 }
 function formatTime(t){
   if(!t) return '—';
   return (t+'').replace('T',' ').substring(0,19)
 }
 function canCancel(st){ return st === '预约中' || st === '已预约' || st === '候补中' }
+function canReview(item){ return item?.status === '已就诊' && !!item?.scheduleRecordId && !!item?.doctorId }
+function shouldShowReview(item){ return canReview(item) }
+function shouldShowCancel(item){ return canCancel(item.status) && !shouldShowReview(item) }
 
 function viewDetail(item){
   uni.showToast({ title: '详情: '+ (item.scheduleRecordId || ''), icon: 'none' })
@@ -105,12 +119,21 @@ async function cancel(item){
     success: async (res) => {
       if (res.confirm) {
         try {
-          await cancelRegistration({ scheduleRecordId: item.scheduleRecordId });
+          const patientId = await userStore.ensurePatientId();
+          if (!patientId) {
+            uni.showToast({ title: '无法获取用户信息，请重试', icon: 'none' });
+            return;
+          }
+          await cancelRegistration({
+            patientId: patientId,
+            scheduleRecordId: item.scheduleRecordId
+          });
 
           const target = registrations.value.find(r => r.scheduleRecordId === item.scheduleRecordId);
           if (target) target.status = '已取消';
         } catch (e) {
-
+          const errMsg = e?.data?.msg || e?.message || '取消失败，请稍后重试';
+          uni.showToast({ title: errMsg, icon: 'none' });
         }
       }
     }
@@ -125,15 +148,49 @@ async function cancelWaiting(item) {
       if (res.confirm) {
         try {
           const patientId = await userStore.ensurePatientId();
+          if (!patientId) {
+            uni.showToast({ title: '无法获取用户信息，请重试', icon: 'none' });
+            return;
+          }
           await cancelWaitingRegistration({ waitingId: item.waitingId, patientId });
           const target = registrations.value.find(r => r.waitingId === item.waitingId);
           if (target) target.status = '已取消';
         } catch (e) {
-
+          const errMsg = e?.data?.msg || e?.message || '取消候补失败，请稍后重-试';
+          uni.showToast({ title: errMsg, icon: 'none' });
         }
       }
     }
   });
+}
+
+async function goReview(item) {
+  const pid = await userStore.ensurePatientId();
+  if (!pid) {
+    uni.showToast({ title: '请先登录或完善资料', icon: 'none' });
+    return;
+  }
+  const params = buildQuery({
+    registrationId: item.scheduleRecordId,
+    doctorId: item.doctorId,
+    patientId: pid,
+    doctorName: item.doctorName || item.doctorId || '',
+    departmentName: item.departmentName || item.departmentId || '',
+    scheduleDate: item.scheduleDate || '',
+    timePeriodName: item.timePeriodName || ''
+  });
+  if (!params) {
+    uni.showToast({ title: '评价信息不足', icon: 'none' });
+    return;
+  }
+  uni.navigateTo({ url: `/pages/me/DoctorReview?${params}` });
+}
+
+function buildQuery(obj) {
+  return Object.entries(obj)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+    .join('&');
 }
 
 function goToRegister(){
@@ -242,12 +299,15 @@ load()
 .st-ok { background:#e3f2fd; color:#1976d2; }
 .st-pending { background:#fff3e0; color:#fb8c00; }
 .st-waiting { background:#ede7f6; color:#5e35b1; }
+.st-completed { background: #e8f5e9; color: #43a047; }
 .st-default { background:#eceff1; color:#607d8b; }
 .line { display:flex; font-size:26rpx; margin-top:6rpx; }
 .label { color:#888; width:140rpx; }
 .value { color:#333; }
 .actions { display:flex; margin-top:16rpx; }
+.actions button { flex:1; margin-right:16rpx; }
+.actions button:last-child { margin-right:0; }
 .detail-btn { margin-right:16rpx; background:#4e9deb; color:#fff; }
+.review-btn { margin-right:16rpx; background:#ffb300; color:#fff; }
 .cancel-btn { background:#e53935; color:#fff; }
 </style>
-

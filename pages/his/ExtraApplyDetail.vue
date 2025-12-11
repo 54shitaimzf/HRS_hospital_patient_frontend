@@ -46,7 +46,7 @@
 <script setup>
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
-import { api } from '../../utils/api'
+import { fetchExtraApplyDetail } from '../../utils/api'
 
 const item = ref({})
 const loading = ref(true)
@@ -66,13 +66,8 @@ onLoad((options) => {
 async function fetchDetail(id) {
   loading.value = true
   try {
-    const res = await api.get(`/api/extra-apply/${encodeURIComponent(id)}`)
-    if (res.statusCode === 200 || res.status === 200) {
-
-      item.value = res.data?.data || res.data || res
-    } else {
-      error.value = res.data?.message || '加载失败'
-    }
+    const { apply } = await fetchExtraApplyDetail(id)
+    item.value = apply || {}
   } catch (e) {
     error.value = e?.message || '网络错误'
   } finally {
@@ -99,5 +94,3 @@ function goBack() {
 .reason { color:#666 }
 .back-btn { margin-top: 24rpx; background:#eee; color:#333; padding: 16rpx 0; border-radius: 8rpx; width:100% }
 </style>
-
-

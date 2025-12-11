@@ -37,7 +37,7 @@
 import { ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '../../store/user'
-import { api } from '../../utils/api'
+import { submitExtraApply } from '../../utils/api'
 
 const departmentId = ref('')
 const departmentName = ref('')
@@ -125,12 +125,12 @@ async function submitApply() {
 			success: async (res) => {
 				if (!res.confirm) { submitting.value = false; return }
 				try {
-					const r = await api.post('/api/extra-apply', payload)
-					if (r.statusCode === 201 || r.statusCode === 200) {
+					const r = await submitExtraApply(payload)
+					if (r.raw?.statusCode === 201 || r.raw?.statusCode === 200) {
 						uni.showToast({ title: '提交成功', icon: 'success' })
 						setTimeout(() => uni.navigateBack(), 800)
 					} else {
-						const msg = r.data?.message || r.data?.msg || `提交失败(${r.statusCode})`
+						const msg = r.raw?.data?.message || r.raw?.data?.msg || '提交失败'
 						uni.showToast({ title: msg, icon: 'none' })
 					}
 				} catch (err) {
@@ -162,4 +162,3 @@ async function submitApply() {
 .submit-btn { background-color: #1890ff; color: #fff; font-size: 32rpx; border-radius: 50rpx; padding: 20rpx 0; width: 100%; box-sizing: border-box; }
 .submit-btn[disabled] { background-color: #ccc; }
 </style>
-

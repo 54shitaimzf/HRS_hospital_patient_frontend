@@ -139,6 +139,18 @@ function ensureDemoData() {
       doctorId: 'DOC002',
       doctorName: findDoctorNameById('DOC002')
     });
+    registrations.push({
+      patientId: 'PAT0001',
+      scheduleRecordId: 'SCH1003',
+      scheduleDate: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+      timePeriodName: '上午',
+      registerTime: new Date(Date.now() - 86400000).toISOString(),
+      status: '已就诊',
+      departmentId: 'DEP001',
+      departmentName: findDepartmentNameById('DEP001'),
+      doctorId: 'DOC003',
+      doctorName: findDoctorNameById('DOC003')
+    });
   }
   // seed some extra-apply demo records that correspond to existing doctors/patients
   if (extraApplies.length === 0) {

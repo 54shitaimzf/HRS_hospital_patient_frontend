@@ -41,7 +41,7 @@
 	import {
 		onLoad
 	} from '@dcloudio/uni-app'
-	import { api } from '../../utils/api.js'
+	import { fetchDepartments as fetchDepartmentsApi } from '../../utils/api.js'
 
 	const allDepartments = ref([]);
 	const selectedDeptId = ref(null);
@@ -49,30 +49,23 @@
 	const fromParam = ref('')
 
 
-	const fetchDepartments = async () => {
+	const loadDepartments = async () => {
 		loading.value = true;
 		try {
-			const res = await api.get('/api/departments');
-			if (res.statusCode === 200) {
-				allDepartments.value = res.data;
-				if (allDepartments.value.length > 0) {
+			const { list } = await fetchDepartmentsApi();
+			allDepartments.value = list;
+			if (allDepartments.value.length > 0) {
 
-					selectedDeptId.value = allDepartments.value[0].id;
-				}
-				uni.showToast({
-					title: `科室加载成功: ${res.data.length}个`,
-					icon: 'none'
-				});
-			} else {
-				uni.showToast({
-					title: '科室列表加载失败',
-					icon: 'none'
-				});
+				selectedDeptId.value = allDepartments.value[0].id;
 			}
+			uni.showToast({
+				title: `科室加载成功: ${allDepartments.value.length}个`,
+				icon: 'none'
+			});
 		} catch (error) {
 			console.error('获取科室列表失败:', error);
 			uni.showToast({
-				title: '网络错误',
+				title: error?.message || '科室列表加载失败',
 				icon: 'none'
 			});
 		} finally {
@@ -82,7 +75,7 @@
 
 	onLoad((options) => {
 		fromParam.value = options.from || ''
-		fetchDepartments();
+		loadDepartments();
 	})
 
 

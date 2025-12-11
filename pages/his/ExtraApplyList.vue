@@ -40,7 +40,7 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { useUserStore } from '../../store/user.js'
-import { api } from '../../utils/api.js'
+import { fetchExtraApplyList } from '../../utils/api.js'
 
 const items = ref([])
 const loading = ref(true)
@@ -63,25 +63,8 @@ async function fetchList() {
       loading.value = false
       return
     }
-    const res = await api.get('/api/extra-apply', { patientId: pid })
-    if (res.statusCode === 200) {
-      let payload = res.data
-
-      if (Array.isArray(payload)) {
-        items.value = payload
-      } else if (payload?.items) {
-        items.value = payload.items
-      } else if (payload?.data && Array.isArray(payload.data)) {
-        items.value = payload.data
-      } else if (payload?.data?.items) {
-        items.value = payload.data.items
-      } else {
-
-        items.value = Array.isArray(res.data) ? res.data : (res.data?.items || [])
-      }
-    } else {
-      throw new Error(res.data?.message || '加载失败')
-    }
+    const { list } = await fetchExtraApplyList({ patientId: pid })
+    items.value = Array.isArray(list) ? list : []
   } catch (e) {
     error.value = e?.message || '加载失败'
     uni.showToast({ title: error.value, icon: 'none' })
@@ -112,4 +95,3 @@ function openDetail(id) {
 .status { color:#1a73e8; font-weight:600 }
 .reason { color:#666 }
 </style>
-

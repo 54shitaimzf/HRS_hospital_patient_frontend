@@ -62,7 +62,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { api } from '../../utils/api.js'
+import { registerUser } from '../../utils/api.js'
 
 const form = ref({
 	userName: '',
@@ -89,19 +89,11 @@ const register = async () => {
 	}
 	const { confirm, ...registerData } = form.value
 	try {
-		const res = await api.post('/user/register', registerData)
-		if (res && res.data) {
-			if (res.data.code === 200 || res.data.code === '200') {
-				uni.showToast({ title: '注册成功', icon: 'success' })
-				setTimeout(() => uni.redirectTo({ url: '/pages/login/Login' }), 600)
-			} else {
-				uni.showToast({ title: res.data.msg || res.data.message || '注册失败', icon: 'none' })
-			}
-		} else {
-			uni.showToast({ title: '网络错误或服务器响应异常', icon: 'none' })
-		}
+		await registerUser(registerData)
+		uni.showToast({ title: '注册成功', icon: 'success' })
+		setTimeout(() => uni.redirectTo({ url: '/pages/login/Login' }), 600)
 	} catch (error) {
-		uni.showToast({ title: '请求失败，请检查网络连接', icon: 'none' })
+		if (!error?.silent) uni.showToast({ title: error?.message || '注册失败', icon: 'none' })
 		console.error('Register request failed:', error)
 	}
 }
