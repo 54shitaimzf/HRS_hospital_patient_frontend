@@ -44,11 +44,27 @@
 
 <script setup>
 	import {
-		ref
+		ref,
+		computed,
+		onMounted
 	} from 'vue'
+	import { useUserStore } from '../../store/user.js'
 
+	const userStore = useUserStore()
 	const avatarUrl = ref('https://cdn-icons-png.flaticon.com/512/147/147144.png') // 示例头像
-	const username = ref('张三')
+
+	// 从 userStore 获取用户账号名
+	const username = computed(() => {
+		return userStore.userInfo?.account ||
+		       userStore.userInfo?.username ||
+		       userStore.userInfo?.userAccount ||
+		       '未登录'
+	})
+
+	onMounted(() => {
+		// 确保从本地存储恢复用户信息
+		userStore.hydrate()
+	})
 
 	const goToProfileEdit = () => {
 		uni.navigateTo({
