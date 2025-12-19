@@ -689,15 +689,60 @@ export async function payOrder(paymentId) {
   if (!paymentId) return Promise.reject({ message: '缺少 paymentId' });
   try {
     const res = await api.post(`/api/payments/${paymentId}/pay`);
+
+    console.log('========== 支付接口返回数据结构 ==========');
+    console.log('完整响应对象:', JSON.stringify(res, null, 2));
+    console.log('状态码:', res.statusCode);
+    console.log('响应数据:', JSON.stringify(res.data, null, 2));
+    console.log('==========================================');
+
     if (res.statusCode === 200) {
       const payload = res.data?.data ?? res.data;
-      uni.showToast({ title: '支付成功', icon: 'success' });
-      return { payment: payload, raw: res };
+
+      // 验证支付状态是否真的变成"已支付"
+      if (payload && payload.payStatus === '已支付') {
+        uni.showToast({ title: '支付成功', icon: 'success' });
+        return { payment: payload, raw: res };
+      }
+
+      // 状态码200但状态不是"已支付"，视为支付失败
+      const status = payload?.payStatus || '未知';
+      const dataStructure = JSON.stringify(res.data, null, 2);
+      const msg = `支付未完成，当前状态：${status}\n\n返回的数据结构：\n${dataStructure}`;
+
+      console.error('========== 支付状态不正确 ==========');
+      console.error('期望状态: 已支付');
+      console.error('实际状态:', status);
+      console.error('完整数据结构:', dataStructure);
+      console.error('===================================');
+
+      uni.showModal({
+        title: '支付状态异常',
+        content: `当前状态：${status}\n\n完整返回数据：\n${dataStructure}`,
+        showCancel: true,
+        confirmText: '确定',
+        cancelText: '复制数据',
+        success: (modalRes) => {
+          if (modalRes.cancel) {
+            uni.setClipboardData({
+              data: dataStructure,
+              success: () => {
+                uni.showToast({ title: '数据已复制', icon: 'success' });
+              }
+            });
+          }
+        }
+      });
+
+      return Promise.reject({ message: msg, raw: res, payment: payload });
     }
     const msg = res.data?.msg || res.data?.message || '支付失败';
     uni.showToast({ title: msg, icon: 'none' });
     return Promise.reject({ message: msg, raw: res });
   } catch (err) {
+    console.error('========== 支付请求异常 ==========');
+    console.error('错误信息:', err);
+    console.error('==================================');
     if (!err?.silent) uni.showToast({ title: err?.message || '支付失败', icon: 'none' });
     return Promise.reject(err);
   }
