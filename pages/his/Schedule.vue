@@ -217,16 +217,36 @@
 				if (res.confirm) {
 					try {
 						const { record } = await createRegistration({ patientId, scheduleRecordId: item.scheduleRecordId, confirm: true })
-						const resultOk = Boolean(record)
-						if (resultOk) {
-							uni.showToast({ title: '预约成功', icon: 'success' })
-							fetchSchedules()
+						if (record && record.status) {
+							uni.showToast({ title: '预约成功，请支付', icon: 'success' })
+							setTimeout(() => {
+								uni.navigateTo({
+									url: `/pages/pay/Payment?paymentId=${record.paymentId}`
+								})
+							}, 1000)
 						} else {
-							uni.showToast({ title: '预约失败', icon: 'none' })
+							// uni.showToast({ title: '预约失败或号源不足', icon: 'none' })
+							// 调试用：显示详细返回信息
+							uni.showModal({
+								title: '预约返回异常',
+								content: '后端返回数据异常(无status或为空):\n' + JSON.stringify(record),
+								showCancel: false
+							})
+							fetchSchedules()
 						}
 					} catch (err) {
-						const msg = err?.message || '网络错误，请重试'
-						uni.showToast({ title: msg, icon: 'none' })
+						console.error('Reservation failed:', err)
+						let content = err?.message || '预约失败'
+						if (err?.raw?.data) {
+							const rd = err.raw.data
+							const backendMsg = rd.msg || rd.message || JSON.stringify(rd)
+							content += `\n后端返回: ${backendMsg}`
+						}
+						uni.showModal({
+							title: '预约失败详情',
+							content: content,
+							showCancel: false
+						})
 					}
 				}
 			}

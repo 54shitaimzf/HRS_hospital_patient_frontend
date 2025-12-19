@@ -93,8 +93,21 @@ const register = async () => {
 		uni.showToast({ title: '注册成功', icon: 'success' })
 		setTimeout(() => uni.redirectTo({ url: '/pages/login/Login' }), 600)
 	} catch (error) {
-		if (!error?.silent) uni.showToast({ title: error?.message || '注册失败', icon: 'none' })
-		console.error('Register request failed:', error)
+ 		console.error('Register request failed:', error)
+
+		// 调试用：显示详细错误信息
+		let content = error?.message || '注册失败';
+		if (error?.raw?.data) {
+			// 尝试提取后端返回的具体错误信息
+			const rd = error.raw.data;
+			const backendMsg = rd.msg || rd.message || JSON.stringify(rd);
+			content += `\n后端返回: ${backendMsg}`;
+		}
+		uni.showModal({
+			title: '注册失败详情',
+			content: content,
+			showCancel: false
+		});
 	}
 }
 </script>

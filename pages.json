@@ -70,12 +70,6 @@
 			}
 		},
 		{
-			"path": "pages/outpatient/OutpatientPayment",
-			"style": {
-				"navigationBarTitleText": "门诊缴费"
-			}
-		},
-		{
 			"path": "pages/pre/PrescriptionList",
 			"style": {
 				"navigationBarTitleText": "电子处方"
@@ -142,9 +136,21 @@
 			}
 		},
 		{
+			"path": "pages/me/OrderList",
+			"style": {
+				"navigationBarTitleText": "我的订单"
+			}
+		},
+		{
 			"path": "pages/me/DoctorReview",
 			"style": {
 				"navigationBarTitleText": "医生评价"
+			}
+		},
+		{
+			"path": "pages/me/MessageCenter",
+			"style": {
+				"navigationBarTitleText": "消息中心"
 			}
 		},
 		{

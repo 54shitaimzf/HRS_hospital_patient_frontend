@@ -54,7 +54,8 @@
 		useUserStore
 	} from '../../store/user.js';
 	import {
-		api
+		fetchWaitingQueue,
+		createWaitingRegistration
 	} from '../../utils/api.js';
 
 	const userStore = useUserStore();
@@ -94,22 +95,22 @@
 		loading.value = true;
 		error.value = '';
 		try {
-			const res = await api.get('/api/registrations/waiting', {
+			const {
+				waitingList = [],
+				waitingCount: count = 0
+			} = await fetchWaitingQueue({
 				scheduleRecordId: scheduleRecordId.value
 			});
-			if (res.statusCode === 200) {
-				const data = res.data;
-				waitingCount.value = data.waitingCount || 0;
-				const patientId = userStore.patientId;
-				const me = data.waitingList?.find(p => p.patientId === patientId);
+			waitingCount.value = count;
+			const patientId = userStore.patientId;
+			if (patientId) {
+				const me = waitingList.find(p => p.patientId === patientId);
 				if (me) {
-					myPosition.value = me.position;
+					myPosition.value = me.position || me.waitingPosition || 0;
 				}
-			} else {
-				throw new Error(res.data?.message || '查询失败');
 			}
 		} catch (e) {
-			error.value = e.message;
+			error.value = e?.message || '查询失败';
 		} finally {
 			loading.value = false;
 		}
@@ -127,23 +128,20 @@
 				});
 				return;
 			}
-			const res = await api.post('/api/registrations/waiting', {
+			const {
+				waiting
+			} = await createWaitingRegistration({
 				patientId,
 				scheduleRecordId: scheduleRecordId.value
 			});
-			if (res.statusCode === 200) {
-				uni.showToast({
-					title: '候补成功',
-					icon: 'success'
-				});
-				myPosition.value = res.data.position;
-				waitingCount.value += 1;
-			} else {
-				throw new Error(res.data?.message || '候补失败');
+			const position = waiting?.position || waiting?.waitingPosition || 0;
+			if (position > 0) {
+				myPosition.value = position;
 			}
+			waitingCount.value += 1;
 		} catch (e) {
 			uni.showToast({
-				title: e.message,
+				title: e?.message || '候补失败',
 				icon: 'none'
 			});
 		} finally {
@@ -231,5 +229,3 @@
 		background-color: #ccc;
 	}
 </style>
-
-

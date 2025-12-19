@@ -315,6 +315,25 @@ export async function fetchPatientId({ account }) {
   }
 }
 
+export async function fetchUnreadMessages({ patientId }) {
+  if (!patientId) return Promise.reject({ message: '缺少 patientId' });
+  try {
+    const res = await api.post(`/api/patients/${encodeURIComponent(patientId)}/messages`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? {};
+      const hasNew = Boolean(payload.status);
+      const messages = Array.isArray(payload.messages) ? payload.messages : [];
+      return { hasNew, messages, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '获取未读消息失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取未读消息失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export async function loginUser({ account, password }) {
   if (!account || !password) return Promise.reject({ message: '缺少账号或密码' });
   try {
@@ -629,6 +648,79 @@ export async function updateFeedbackStatus({ feedbackId, status, operatorId, com
   }
 }
 
+export async function fetchPayments({ patientId }) {
+  if (!patientId) return Promise.reject({ message: '缺少 patientId' });
+  try {
+    const res = await api.get('/api/payments', { patientId });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      const list = payload.payments || [];
+      return {
+        list,
+        total: payload.total ?? list.length,
+        raw: res
+      };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取订单列表失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取订单列表失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function fetchPaymentDetail(paymentId) {
+  if (!paymentId) return Promise.reject({ message: '缺少 paymentId' });
+  try {
+    const res = await api.get(`/api/payments/${paymentId}`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      return { payment: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取订单详情失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取订单详情失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function payOrder(paymentId) {
+  if (!paymentId) return Promise.reject({ message: '缺少 paymentId' });
+  try {
+    const res = await api.post(`/api/payments/${paymentId}/pay`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '支付成功', icon: 'success' });
+      return { payment: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '支付失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '支付失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function cancelOrder(paymentId) {
+  if (!paymentId) return Promise.reject({ message: '缺少 paymentId' });
+  try {
+    const res = await api.del(`/api/payments/${paymentId}`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '订单已取消', icon: 'success' });
+      return { payment: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '取消订单失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '取消订单失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export function setServerMode(mode) { // 'mock' | 'prod'
   const ok = _setServerMode(mode);
   if (ok) {
@@ -653,6 +745,7 @@ const _keep = [
   fetchRegistrationDoctors,
   fetchDoctorDetail,
   fetchPatientId,
+  fetchUnreadMessages,
   loginUser,
   registerUser,
   createRegistration,
@@ -669,6 +762,10 @@ const _keep = [
   fetchAdminFeedbacks,
   fetchFeedbackDetail,
   updateFeedbackStatus,
+  fetchPayments,
+  fetchPaymentDetail,
+  payOrder,
+  cancelOrder,
   setServerMode,
   currentServerMode
 ];

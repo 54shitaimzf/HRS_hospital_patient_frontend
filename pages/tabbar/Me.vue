@@ -23,6 +23,11 @@
 			<text class="card-desc">查看加号申请记录</text>
 		</view>
 
+		<view class="card" @click="goToMyOrders">
+			<text class="card-title">我的订单</text>
+			<text class="card-desc">查看支付订单记录</text>
+		</view>
+
 		<view class="card" @click="goToOrders">
 			<text class="card-title">就诊记录</text>
 			<text class="card-desc">查看就诊记录与详情</text>
@@ -58,6 +63,11 @@
 
 	const goToExtraApplyList = () => {
 		uni.navigateTo({ url: '/pages/his/ExtraApplyList' })
+	}
+	const goToMyOrders = () => {
+		uni.navigateTo({
+			url: '/pages/me/OrderList'
+		})
 	}
 	const goToOrders = () => {
 		uni.navigateTo({

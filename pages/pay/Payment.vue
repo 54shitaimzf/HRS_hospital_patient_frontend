@@ -7,10 +7,16 @@
 			<text class="label">科室：</text><text class="value">{{ department }}</text>
 		</view>
 		<view class="payment-info">
-			<text class="label">时间：</text><text class="value">{{ time }}</text>
+			<text class="label">时间：</text><text class="value">{{ formatTime(time) }}</text>
+		</view>
+		<view class="payment-info" v-if="oriFee > fee">
+			<text class="label">原价：</text><text class="value" style="text-decoration: line-through; color: #999;">{{ oriFee }} 元</text>
+		</view>
+		<view class="payment-info" v-if="reimburseType">
+			<text class="label">报销：</text><text class="value">{{ reimburseType }} (报销{{ reimbursePercent }}%)</text>
 		</view>
 		<view class="payment-info">
-			<text class="label">费用：</text><text class="value">{{ fee }} 元</text>
+			<text class="label">实付：</text><text class="value" style="color: #ff4d4f; font-weight: bold;">{{ fee }} 元</text>
 		</view>
 
 		<view class="payment-method">
@@ -24,17 +30,11 @@
 			</view>
 		</view>
 
-		<button class="pay-btn" @click="pay" :disabled="isPaying">
-			{{ isPaying ? '支付中...' : '立即支付' }}
-		</button>
-
-		
-		<button v-if="isPendingPayment" class="mock-pay-btn" @click="goToMockPayment">
-			去支付（模拟）
+		<button class="pay-btn" @click="pay" :disabled="isPaying || !isPendingPayment">
+			{{ isPaying ? '支付中...' : (isPendingPayment ? '立即支付' : orderStatus) }}
 		</button>
 	</view>
 </template>
-
 
 <script setup>
 	import {
@@ -44,117 +44,104 @@
 	import {
 		onLoad
 	} from '@dcloudio/uni-app'
+	import { fetchPaymentDetail, payOrder } from '../../utils/api.js'
 
 	const doctorName = ref('')
 	const department = ref('')
 	const time = ref('')
 	const fee = ref(0)
+	const oriFee = ref(0)
+	const reimburseType = ref('')
+	const reimbursePercent = ref(0)
+
 	const isPaying = ref(false)
-	const selectedMethod = ref('wechat') // 默认微信支付
-	const orderId = ref('')
+	const selectedMethod = ref('medical') // 默认医保支付
+	const paymentId = ref('')
 	const orderStatus = ref('')
 
-	const payMethods = [{
-			label: '微信支付',
-			value: 'wechat',
-			icon: '/static/images/wxlogin.png'
-		},
+	const payMethods = [
 		{
 			label: '医保支付',
 			value: 'medical',
 			icon: '/static/images/medical.png'
+		},
+		{
+			label: '微信支付',
+			value: 'wechat',
+			icon: '/static/images/wxlogin.png'
 		}
 	]
 
-	onLoad((options) => {
-		doctorName.value = options.doctorName || ''
-		department.value = options.department || ''
-		time.value = options.time || ''
-		fee.value = Number(options.fee) || 0
+	onLoad(async (options) => {
+		// 优先使用 paymentId
+		paymentId.value = options.paymentId || options.orderId || options.id || ''
 
-		orderId.value = options.orderId || options.id || ''
-		orderStatus.value = options.status || options.orderStatus || ''
+		// 如果有 paymentId，从后端加载详情
+		if (paymentId.value) {
+			await loadPaymentDetail()
+		} else {
+			// 降���：使用传递过来的参数（如果有）
+			doctorName.value = options.doctorName || ''
+			department.value = options.department || ''
+			time.value = options.time || ''
+			fee.value = Number(options.fee) || 0
+			orderStatus.value = options.status || options.orderStatus || ''
+		}
 	})
 
+	async function loadPaymentDetail() {
+		try {
+			const res = await fetchPaymentDetail(paymentId.value)
+			const p = res.payment
+			doctorName.value = p.doctorName || ''
+			department.value = p.departmentName || ''
+			time.value = p.payTime || ''
+			fee.value = p.askPayAmount || 0
+			oriFee.value = p.oriAmount || 0
+			reimburseType.value = p.reimburseType || ''
+			reimbursePercent.value = p.reimbursePercent || 0
+			orderStatus.value = p.payStatus || ''
+		} catch (e) {
+			console.error(e)
+		}
+	}
 
-	const isPendingPayment = computed(() => orderStatus.value === '待支付')
+	const isPendingPayment = computed(() => orderStatus.value === '待支付' || !orderStatus.value)
 
-	function goToMockPayment() {
-
-		const url = `/pages/pay/MockPayment?orderId=${encodeURIComponent(orderId.value || '')}&amount=${encodeURIComponent(fee.value)}&title=${encodeURIComponent('挂号费用')}&doctorName=${encodeURIComponent(doctorName.value)}&department=${encodeURIComponent(department.value)}`
-		uni.navigateTo({ url })
+	function formatTime(t) {
+		if (!t) return ''
+		return t.replace('T', ' ').substring(0, 19)
 	}
 
 	const pay = async () => {
 		if (isPaying.value) return
+		if (!isPendingPayment.value) return
+
 		isPaying.value = true
 
-		if (selectedMethod.value === 'wechat') {
+		if (selectedMethod.value === 'medical') {
 			try {
-				const res = await uni.request({
-					url: '', // 替换为你的后端接口
-					method: 'POST',
-					data: {
-						doctorName: doctorName.value,
-						department: department.value,
-						time: time.value,
-						fee: fee.value,
-						openid: '用户openid'
-					},
-					header: {
-						'Content-Type': 'application/json'
-					}
-				})
-
-				const data = res.data
-				if (data.code !== 0) {
-					uni.showToast({
-						title: '下单失败',
-						icon: 'none'
-					})
-					isPaying.value = false
-					return
-				}
-
-				const paymentData = data.payment
-
-				uni.requestPayment({
-					provider: 'wxpay',
-					timeStamp: paymentData.timeStamp,
-					nonceStr: paymentData.nonceStr,
-					package: paymentData.package,
-					signType: 'MD5',
-					paySign: paymentData.paySign,
-					success: () => {
-						uni.showToast({
-							title: '支付成功',
-							icon: 'success'
-						})
-						uni.navigateTo({
-							url: '/pages/order/list'
-						})
-					},
-					fail: () => {
-						uni.showToast({
-							title: '支付失败',
-							icon: 'none'
-						})
-					},
-					complete: () => {
-						isPaying.value = false
-					}
-				})
-			} catch (e) {
-				isPaying.value = false
+				await payOrder(paymentId.value)
+				// 支付成功
 				uni.showToast({
-					title: '请求失败',
-					icon: 'none'
+					title: '支付成功',
+					icon: 'success'
 				})
+				orderStatus.value = '已支付'
+				setTimeout(() => {
+					// 跳转到挂号列表
+					uni.redirectTo({
+						url: '/pages/me/RegistrationList'
+					})
+				}, 1500)
+			} catch (e) {
+				// 错误已在 api.js 中处理提示
+			} finally {
+				isPaying.value = false
 			}
-		} else if (selectedMethod.value === 'medical') {
-
+		} else if (selectedMethod.value === 'wechat') {
 			uni.showToast({
-				title: '医保支付暂未开通',
+				title: '微信支付暂未开通，请使用医保支付',
 				icon: 'none'
 			})
 			isPaying.value = false
@@ -214,19 +201,6 @@
 		transition: transform 0.2s ease;
 	}
 
-	.mock-pay-btn {
-		width: 100%;
-		background: #fff;
-		color: #1890ff;
-		font-size: 32rpx;
-		padding: 22rpx 0;
-		border-radius: 50rpx;
-		font-weight: 700;
-		border: 2rpx solid #1890ff;
-		text-align: center;
-		margin-top: 12rpx;
-	}
-
 	.pay-btn:active {
 		transform: scale(0.98);
 	}
@@ -238,20 +212,20 @@
 		transform: none;
 		cursor: not-allowed;
 	}
-	
+
 	.payment-method {
 		margin-top: 20rpx;
 		display: flex;
 		flex-direction: column;
 		gap: 20rpx;
 	}
-	
+
 	.method-options {
 		display: flex;
 		justify-content: space-between;
 		margin-top: 10rpx;
 	}
-	
+
 	.method-option {
 		flex: 1;
 		display: flex;
@@ -266,22 +240,22 @@
 		box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.04);
 		margin-right: 20rpx;
 	}
-	
+
 	.method-option:last-child {
 		margin-right: 0;
 	}
-	
+
 	.method-option.active {
 		border-color: #1890ff;
 		box-shadow: 0 6rpx 18rpx rgba(24, 144, 255, 0.2);
 	}
-	
+
 	.method-icon {
 		width: 60rpx;
 		height: 60rpx;
 		margin-bottom: 10rpx;
 	}
-	
+
 	.method-text {
 		font-size: 28rpx;
 		color: #333;

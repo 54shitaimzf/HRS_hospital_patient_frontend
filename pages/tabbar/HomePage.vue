@@ -1,20 +1,20 @@
-﻿<template>
-	<scroll-view scroll-y class="container">
-		
-		<swiper indicator-dots autoplay interval="3000" class="swiper-container">
+﻿﻿<template>
+	<scroll-view scroll-y="true" class="container">
+
+		<swiper indicator-dots="true" autoplay="true" interval="3000" class="swiper-container">
 			<swiper-item v-for="(banner, index) in banners" :key="index">
 				<image :src="banner" class="banner-image" mode="aspectFill" />
 			</swiper-item>
 		</swiper>
 
-		
+
 		<view class="marquee-wrapper">
 			<view class="marquee-content" :style="{ animationDuration: animationDuration + 's' }">
 				{{ marqueeMsg }}
 			</view>
 		</view>
 
-		
+
 		<view class="grid-container">
 			<view class="grid-item" v-for="(item, index) in gridList" :key="index" @click="item.action">
 				<image :src="item.icon" class="grid-icon" mode="aspectFit" />
@@ -22,7 +22,7 @@
 			</view>
 		</view>
 
-		
+
 		<view class="card">
 			<text class="card-title">🏨 医院简介</text>
 			<text class="card-content">
@@ -30,13 +30,17 @@
 			</text>
 		</view>
 
-		
+
 		<view class="card">
 			<text class="card-title">⭐ 特色科室</text>
 			<view class="card-content">
 				本院设有肿瘤科、心血管科、神经内科、儿科、眼科等重点科室，提供高质量的专科服务。
 			</view>
 			<button class="main-btn" @click="goDepartments">查看科室</button>
+		</view>
+
+		<view class="fab" @click="goMessageCenter">
+			<image src="/static/images/tabbar/message.png" class="fab-icon" mode="aspectFit" />
 		</view>
 	</scroll-view>
 </template>
@@ -82,13 +86,13 @@
 				url: '/pages/his/Departments'
 			}),
 		},
-		{
-			icon: '/static/images/home/mzjf.png',
-			text: '门诊缴费',
-			action: () => uni.navigateTo({
-				url: '/pages/outpatient/OutpatientPayment'
-			}),
-		},
+	{
+		icon: '/static/images/home/mzjf.png',
+		text: '订单列表',
+		action: () => uni.navigateTo({
+			url: '/pages/me/OrderList'
+		}),
+	},
 		{
 			icon: '/static/images/home/dzcf.png',
 			text: '电子处方',
@@ -119,23 +123,14 @@
 		},
 	];
 
+	const goMessageCenter = () => {
+		uni.navigateTo({ url: '/pages/me/MessageCenter' });
+	};
+
 	const goDepartments = () => {
 		uni.navigateTo({
 			url: '/pages/his/Departments'
 		});
-	};
-
-	const handleFunc = (item) => {
-		if (item.route) {
-			uni.navigateTo({
-				url: item.route
-			});
-		} else {
-			uni.showToast({
-				title: '功能暂未开放',
-				icon: 'none'
-			});
-		}
 	};
 </script>
 
@@ -147,7 +142,6 @@
 		box-sizing: border-box;
 	}
 
-	
 	.swiper-container {
 		height: 280rpx;
 		border-radius: 24rpx;
@@ -279,5 +273,31 @@
 	.main-btn:active {
 		opacity: 0.8;
 		transform: scale(0.98);
+	}
+
+	.fab {
+		position: fixed;
+		right: 40rpx;
+		bottom: 120rpx;
+		width: 100rpx;
+		height: 100rpx;
+		border-radius: 50%;
+		background: #1890ff;
+		box-shadow: 0 10rpx 24rpx rgba(24, 144, 255, 0.4);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+		transition: all 0.2s ease-in-out;
+	}
+
+	.fab:active {
+		opacity: 0.8;
+		transform: scale(0.95);
+	}
+
+	.fab-icon {
+		width: 50rpx;
+		height: 50rpx;
 	}
 </style>
