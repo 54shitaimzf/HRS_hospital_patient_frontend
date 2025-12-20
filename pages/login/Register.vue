@@ -55,6 +55,8 @@
 				<input v-model="form.confirm" type="password" placeholder="确认密码" class="input" />
 			</view>
 			<button class="register-btn" @click="register">注 册</button>
+			<!-- 新增：返回登录 链接，位于表单底部，居中显示 -->
+			<text class="back-link" @click="goLogin">返回登录</text>
 		</view>
 	</view>
 </template>
@@ -79,6 +81,9 @@ const form = ref({
 const goBack = () => { uni.navigateBack() }
 const genderChange = (e) => { form.value.userGender = e.detail.value }
 const onBirthdayChange = (e) => { form.value.birthday = e.detail.value }
+
+// 新增：返回登录导航函数
+const goLogin = () => { uni.navigateTo({ url: '/pages/login/Login' }) }
 
 const register = async () => {
 	if (form.value.userPassword !== form.value.confirm) {
@@ -209,6 +214,16 @@ const register = async () => {
 		box-shadow: 0 8rpx 20rpx rgba(64, 158, 255, 0.3);
 		transition: all 0.2s ease-in-out;
 		margin-top: 20rpx;
+	}
+
+	/* 新增：表单底部的返回登录链接，居中显示，轻量风格 */
+	.back-link {
+		display: block;
+		text-align: center;
+		margin-top: 18rpx;
+		font-size: 28rpx;
+		color: #409EFF;
+		cursor: pointer;
 	}
 
 	.register-btn:active {

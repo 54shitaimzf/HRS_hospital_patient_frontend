@@ -3,19 +3,19 @@
 		<view class="header">
 			<image src="/static/logo.png" class="logo" />
 			<text class="title">找回密码</text>
-			<text class="tip">请输入注册手机号，我们将发送验证码</text>
+			<text class="tip">请输入注册邮箱，我们将发送验证码</text>
 		</view>
 
 		<view class="form-container">
 			<view class="input-group">
-				<uni-icons type="phone" size="24" color="#409EFF" />
-				<input v-model="phone" type="number" placeholder="请输入手机号" class="input" />
+				<uni-icons type="mail" size="24" color="#409EFF" />
+				<input v-model="email" type="text" placeholder="请输入邮箱" class="input" />
 			</view>
 
 			<view class="input-group code-group">
 				<uni-icons type="chatbox-ellipses" size="24" color="#409EFF" />
 				<input v-model="code" type="number" placeholder="请输入验证码" class="input code-input" />
-				<button :disabled="countdown > 0 || !phone" class="send-code-btn" @click="sendCode">
+				<button :disabled="countdown > 0 || !email" class="send-code-btn" @click="sendCode">
 					{{ countdown > 0 ? countdown + 's 后重发' : '获取验证码' }}
 				</button>
 			</view>
@@ -25,23 +25,23 @@
 				<input v-model="newPassword" type="password" placeholder="请输入新密码" class="input" />
 			</view>
 
-			<button class="reset-btn" :class="{ active: phone && code && newPassword }" @click="handleReset"
+			<button class="reset-btn" :class="{ active: email && code && newPassword }" @click="handleReset"
 				hover-class="button-hover">
 				重置密码
 			</button>
+
+			<!-- moved: 返回登录 放到表单底部 -->
+			<text class="back-link bottom" @click="goLogin">返回登录</text>
 		</view>
 	</view>
 </template>
 
 <script setup>
-	import {
-		ref
-	} from 'vue'
-	import {
-		onLoad
-	} from '@dcloudio/uni-app'
+	import { ref } from 'vue'
+	import { onLoad } from '@dcloudio/uni-app'
 
-	const phone = ref('')
+	// 将手机号验证改为邮箱验证
+	const email = ref('')
 	const code = ref('')
 	const newPassword = ref('')
 	const countdown = ref(0)
@@ -51,49 +51,55 @@
 
 	})
 
+	const isValidEmail = (str) => {
+		return /^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$/.test(str)
+	}
+
 	const sendCode = () => {
-		if (!phone.value) {
-			uni.showToast({
-				title: '请输入手机号',
-				icon: 'none'
-			})
+		if (!email.value) {
+			uni.showToast({ title: '请输入邮箱', icon: 'none' })
+			return
+		}
+		if (!isValidEmail(email.value)) {
+			uni.showToast({ title: '请输入正确的邮箱格式', icon: 'none' })
 			return
 		}
 
-		uni.showToast({
-			title: '验证码已发送',
-			icon: 'success'
-		})
+		// 这里应该调用后端接口发送邮箱验证码；当前为本地模拟
+		uni.showToast({ title: '验证码已发送（模拟）', icon: 'success' })
 		countdown.value = 60
+		if (timer) clearInterval(timer)
 		timer = setInterval(() => {
 			countdown.value--
 			if (countdown.value <= 0) {
 				clearInterval(timer)
+				timer = null
 			}
 		}, 1000)
 	}
 
 	const handleReset = () => {
-		if (!phone.value || !code.value || !newPassword.value) {
-			uni.showToast({
-				title: '请填写完整信息',
-				icon: 'none'
-			})
+		if (!email.value || !code.value || !newPassword.value) {
+			uni.showToast({ title: '请填写完整信息', icon: 'none' })
+			return
+		}
+		if (!isValidEmail(email.value)) {
+			uni.showToast({ title: '请输入正确的邮箱格式', icon: 'none' })
 			return
 		}
 
-		uni.showLoading({
-			title: '提交中...'
-		})
+		uni.showLoading({ title: '提交中...' })
 		setTimeout(() => {
 			uni.hideLoading()
-			uni.showToast({
-				title: '密码重置成功',
-				icon: 'success'
-			})
+			uni.showToast({ title: '密码重置成功', icon: 'success' })
 
 			uni.navigateBack()
 		}, 1500)
+	}
+
+	const goLogin = () => {
+		// 导航回登录页面（根据项目路由，使用 navigateTo 或 redirectTo 可微调）
+		uni.navigateTo({ url: '/pages/login/Login' })
 	}
 </script>
 
@@ -132,6 +138,20 @@
 		font-size: 26rpx;
 		color: #999;
 		margin-top: 12rpx;
+	}
+
+	/* 新增：返回登录链接样式，轻量不影响布局 */
+	.back-link {
+		margin-top: 10rpx;
+		font-size: 26rpx;
+		color: #409EFF;
+	}
+
+	/* 新增：底部返回登录的居中样式，靠近页面底部 */
+	.back-link.bottom {
+		display: block;
+		text-align: center;
+		margin-top: 30rpx;
 	}
 
 	.form-container {
