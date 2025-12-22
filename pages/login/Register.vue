@@ -20,10 +20,25 @@
 				<uni-icons type="contact" size="22" color="#999"></uni-icons>
 				<input v-model="form.identificationId" placeholder="请输入身份证号(18位)" class="input" />
 			</view>
+
+			<!-- 邮箱 + 发送验证码 -->
 			<view class="input-group">
 				<uni-icons type="email" size="22" color="#999"></uni-icons>
 				<input v-model="form.userEmail" placeholder="请输入邮箱" class="input" />
+				<button class="small-btn send-code-btn" :disabled="sendDisabled" @click="sendCode">
+					{{ countdown > 0 ? `重新发送(${countdown}s)` : (sending ? '发送中...' : '发送验证码') }}
+				</button>
 			</view>
+
+			<!-- 验证码输入与校验 -->
+			<view class="input-group">
+				<uni-icons type="locked" size="22" color="#999"></uni-icons>
+				<input v-model="emailCode" placeholder="请输入邮箱验证码" class="input" />
+				<button class="small-btn verify-code-btn" :class="{ verified: emailVerified }" @click="verifyCode">
+					{{ emailVerified ? '已验证' : '验证' }}
+				</button>
+			</view>
+
 			<view class="input-group">
 				<uni-icons type="phone" size="22" color="#999"></uni-icons>
 				<input v-model="form.userPhone" placeholder="请输入手机号" class="input" />
@@ -63,8 +78,8 @@
 
 
 <script setup>
-import { ref } from 'vue'
-import { registerUser } from '../../utils/api.js'
+import { ref, watch, onUnmounted } from 'vue'
+import { registerUser, sendEmailVerification, verifyEmailCode } from '../../utils/api.js'
 
 const form = ref({
 	userName: '',
@@ -76,6 +91,78 @@ const form = ref({
 	userEmail: '',
 	userPhone: '',
 	birthday: ''
+})
+
+const emailCode = ref('')
+const countdown = ref(0)
+let timerId = null
+const sending = ref(false)
+const emailVerified = ref(false)
+
+const sendDisabled = () => {
+	return sending.value || countdown.value > 0 || !form.value.userEmail
+}
+
+const startCountdown = (seconds = 60) => {
+	countdown.value = seconds
+	clearTimer()
+	timerId = setInterval(() => {
+		countdown.value -= 1
+		if (countdown.value <= 0) {
+			clearTimer()
+		}
+	}, 1000)
+}
+
+const clearTimer = () => {
+	if (timerId) {
+		clearInterval(timerId)
+		timerId = null
+	}
+}
+
+const sendCode = async () => {
+	const email = (form.value.userEmail || '').trim()
+	if (!email) return uni.showToast({ title: '请输入邮箱', icon: 'none' })
+	// 简单邮箱格式校验
+	if (!/^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$/.test(email)) {
+		return uni.showToast({ title: '请输入正确的邮箱地址', icon: 'none' })
+	}
+	sending.value = true
+	try {
+		const res = await sendEmailVerification({ email, scene: 'REGISTER' })
+		const expire = res?.expireSeconds || 60
+		startCountdown(expire)
+		// 发送后需要重新验证
+		emailVerified.value = false
+		uni.showToast({ title: '验证码已发送，请注意查收', icon: 'success' })
+	} catch (err) {
+		console.error('发送验证码失败', err)
+	} finally {
+		sending.value = false
+	}
+}
+
+const verifyCode = async () => {
+	const email = (form.value.userEmail || '').trim()
+	const code = (emailCode.value || '').trim()
+	if (!email) return uni.showToast({ title: '请输入邮箱', icon: 'none' })
+	if (!code) return uni.showToast({ title: '请输入验证码', icon: 'none' })
+	try {
+		const res = await verifyEmailCode({ email, code, scene: 'REGISTER' })
+		if (res && res.verified) {
+			emailVerified.value = true
+			uni.showToast({ title: '邮箱验证成功', icon: 'success' })
+		}
+	} catch (err) {
+		console.error('验证失败', err)
+		// verifyEmailCode 已经会展示错误提示
+	}
+}
+
+// 用户修改邮箱时，重置验证状态
+watch(() => form.value.userEmail, (newVal, oldVal) => {
+	emailVerified.value = false
 })
 
 const goBack = () => { uni.navigateBack() }
@@ -92,13 +179,16 @@ const register = async () => {
 	if (!form.value.identificationId || form.value.identificationId.length !== 18) {
 		return uni.showToast({ title: '身份证号必须为18位', icon: 'none' })
 	}
+	if (!form.value.userEmail) return uni.showToast({ title: '请输入邮箱并验证', icon: 'none' })
+	if (!emailVerified.value) return uni.showToast({ title: '请先完成邮箱验证', icon: 'none' })
+
 	const { confirm, ...registerData } = form.value
 	try {
 		await registerUser(registerData)
 		uni.showToast({ title: '注册成功', icon: 'success' })
 		setTimeout(() => uni.redirectTo({ url: '/pages/login/Login' }), 600)
 	} catch (error) {
- 		console.error('Register request failed:', error)
+	 	console.error('Register request failed:', error)
 
 		// 调试用：显示详细错误信息
 		let content = error?.message || '注册失败';
@@ -115,6 +205,10 @@ const register = async () => {
 		});
 	}
 }
+
+onUnmounted(() => {
+	clearTimer()
+})
 </script>
 
 
@@ -229,5 +323,37 @@ const register = async () => {
 	.register-btn:active {
 		transform: scale(0.97);
 		opacity: 0.9;
+	}
+
+	/* 小按钮：发送验证码 / 验证 */
+	.small-btn {
+		margin-left: 12rpx;
+		display: inline-flex; /* center content vertically */
+		align-items: center;
+		justify-content: center;
+		padding: 0 20rpx; /* vertical centering done via height */
+		font-size: 28rpx;
+		border-radius: 12rpx;
+		background: linear-gradient(90deg, #409eff, #6bbaff);
+		color: #fff;
+		border: none;
+		height: 72rpx;
+		min-width: 180rpx;
+		box-shadow: 0 6rpx 16rpx rgba(64,158,255,0.18);
+		line-height: 1; /* avoid baseline shift */
+		box-sizing: border-box;
+		vertical-align: middle;
+	}
+	.small-btn:disabled {
+		opacity: 0.6;
+		background: linear-gradient(90deg, #a0cfff, #cfe8ff);
+	}
+	.verify-code-btn.verified {
+		background: linear-gradient(90deg, #26c281, #4cd964) !important;
+	}
+
+	/* 在较小屏幕上让输入框和按钮更好地适配 */
+	@media (max-width: 420px) {
+		.small-btn { min-width: 140rpx; padding: 0 12rpx; height: 64rpx; font-size: 26rpx; }
 	}
 </style>

@@ -51,47 +51,15 @@
 				<view v-else class="info-value">{{ phone || '未设置' }}</view>
 			</view>
 
+			<!-- 邮箱始终只读（即使在编辑模式下也不可修改） -->
 			<view class="form-item">
 				<view class="label-row">
 					<uni-icons type="email" size="18" color="#666" />
 					<text class="label">邮箱</text>
-					<view v-if="email" class="verify-badge" :class="{ verified: isEmailVerified }">
-						<uni-icons :type="isEmailVerified ? 'checkmarkempty' : 'info'" size="14" :color="isEmailVerified ? '#4cd964' : '#f0ad4e'" />
-						<text class="badge-text">{{ isEmailVerified ? '已验证' : '未验证' }}</text>
-					</view>
 				</view>
 
-				<!-- 已验证的邮箱：编辑模式下也不可修改 -->
-				<view v-if="isEmailVerified" class="info-value verified-email">
-					<text>{{ email }}</text>
-					<view class="lock-icon">
-						<uni-icons type="locked" size="16" color="#4cd964" />
-					</view>
-				</view>
-
-				<!-- 未验证的邮箱：编辑模式下可以修改和验证 -->
-				<template v-else>
-					<view v-if="isEditing" class="input-with-button">
-						<input
-							v-model="email"
-							class="input-field-inline"
-							placeholder="请输入邮箱"
-							type="email"
-						/>
-						<button class="verify-btn" :disabled="countDown > 0 || !email" @click="sendVerificationCode">
-							{{ countDown > 0 ? (countDown + 's') : '发送验证码' }}
-						</button>
-					</view>
-					<view v-else class="info-value">{{ email || '未设置' }}</view>
-
-					<!-- 验证码输入行 -->
-					<view v-if="isEditing && showCodeInput" class="code-row">
-						<input v-model="verificationCode" class="input-code" placeholder="请输入6位验证码" maxlength="6" type="number" />
-						<button class="code-btn" @click="submitVerification">确认验证</button>
-						<text class="resend-text" v-if="countDown === 0" @click="sendVerificationCode">重新发送</text>
-						<text class="resend-text disabled" v-else>{{ countDown }}s</text>
-					</view>
-				</template>
+				<!-- 不再渲染可编辑 input，始终显示为只读信息 -->
+				<view class="info-value">{{ email || '未设置' }}</view>
 			</view>
 
 			<view v-if="isEditing" class="button-group">
@@ -103,9 +71,9 @@
 </template>
 
 <script setup>
-	import { ref, onMounted, onUnmounted } from 'vue'
+	import { ref, onMounted } from 'vue'
 	import { useUserStore } from '../../store/user.js'
-	import { api, sendEmailVerification, verifyEmailCode } from '../../utils/api.js'
+	import { api } from '../../utils/api.js'
 
 	const userStore = useUserStore()
 
@@ -116,16 +84,9 @@
 	const name = ref('')
 	const phone = ref('')
 	const email = ref('')
-	const isEmailVerified = ref(false) // 邮箱验证状态
 
 	// 保存原始数据用于取消编辑
 	const originalData = ref({})
-
-	// 验证码相关
-	const showCodeInput = ref(false)
-	const verificationCode = ref('')
-	const countDown = ref(0)
-	let countDownInterval = null
 
 	const loadUserProfile = async () => {
 		loading.value = true
@@ -147,8 +108,6 @@
 						name.value = patientData.name || patientData.patientName || ''
 						phone.value = patientData.phone || patientData.mobile || patientData.phoneNumber || ''
 						email.value = patientData.email || ''
-						// 从后端获取邮箱验证状态
-						isEmailVerified.value = patientData.emailVerified === true || patientData.isEmailVerified === true
 					}
 				} catch (err) {
 					console.log('从后端获取患者信息失败，使用本地数据:', err)
@@ -156,15 +115,12 @@
 					name.value = userStore.userInfo?.name || userStore.userInfo?.patientName || ''
 					phone.value = userStore.userInfo?.phone || userStore.userInfo?.mobile || ''
 					email.value = userStore.userInfo?.email || ''
-					// 从本地存储获取验证状态
-					isEmailVerified.value = userStore.userInfo?.emailVerified === true || userStore.userInfo?.isEmailVerified === true
 				}
 			} else {
 				// 如果没有 patientId，使用本地数据
 				name.value = userStore.userInfo?.name || userStore.userInfo?.patientName || ''
 				phone.value = userStore.userInfo?.phone || userStore.userInfo?.mobile || ''
 				email.value = userStore.userInfo?.email || ''
-				isEmailVerified.value = userStore.userInfo?.emailVerified === true || userStore.userInfo?.isEmailVerified === true
 			}
 
 			// 保存原始数据
@@ -181,8 +137,7 @@
 		originalData.value = {
 			name: name.value,
 			phone: phone.value,
-			email: email.value,
-			isEmailVerified: isEmailVerified.value
+			email: email.value
 		}
 	}
 
@@ -196,128 +151,7 @@
 		name.value = originalData.value.name
 		phone.value = originalData.value.phone
 		email.value = originalData.value.email
-		isEmailVerified.value = originalData.value.isEmailVerified
 		isEditing.value = false
-		// 清除验证码相关
-		showCodeInput.value = false
-		verificationCode.value = ''
-		countDown.value = 0
-		if (countDownInterval) {
-			clearInterval(countDownInterval)
-			countDownInterval = null
-		}
-	}
-
-	const sendVerificationCode = async () => {
-		// 校验邮箱格式
-		if (!email.value) {
-			return uni.showToast({ title: '请先输入邮箱', icon: 'none' })
-		}
-		if (!/^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$/.test(email.value)) {
-			return uni.showToast({ title: '请输入正确的邮箱格式', icon: 'none' })
-		}
-
-		try {
-			uni.showLoading({ title: '发送中...' })
-
-			// 调用真实的邮箱验证码发送接口
-			await sendEmailVerification({
-				email: email.value,
-				scene: 'PROFILE_VERIFY' // 个人资料验证场景
-			})
-
-			uni.hideLoading()
-
-			// 显示验证码输入框并启动倒计时
-			showCodeInput.value = true
-			verificationCode.value = ''
-			countDown.value = 60
-
-			if (countDownInterval) clearInterval(countDownInterval)
-			countDownInterval = setInterval(() => {
-				if (countDown.value > 0) {
-					countDown.value -= 1
-				} else {
-					clearInterval(countDownInterval)
-					countDownInterval = null
-				}
-			}, 1000)
-		} catch (err) {
-			uni.hideLoading()
-			console.error('发送验证码失败:', err)
-			// API 已经显示了错误提示，这里不需要重复显示
-		}
-	}
-
-	const submitVerification = async () => {
-		if (!verificationCode.value.trim()) {
-			return uni.showToast({ title: '请输入验证码', icon: 'none' })
-		}
-
-		if (verificationCode.value.length !== 6) {
-			return uni.showToast({ title: '请输入6位验证码', icon: 'none' })
-		}
-
-		try {
-			uni.showLoading({ title: '验证中...' })
-
-			// 调用真实的邮箱验证码校验接口
-			const result = await verifyEmailCode({
-				email: email.value,
-				code: verificationCode.value,
-				scene: 'PROFILE_VERIFY'
-			})
-
-			uni.hideLoading()
-
-			if (result.verified) {
-				// 验证成功
-				isEmailVerified.value = true
-				showCodeInput.value = false
-				verificationCode.value = ''
-				countDown.value = 0
-
-				if (countDownInterval) {
-					clearInterval(countDownInterval)
-					countDownInterval = null
-				}
-
-				// 立即保存验证状态到后端和本地
-				await saveEmailVerificationStatus()
-
-				uni.showToast({ title: '邮箱验证成功', icon: 'success' })
-			}
-		} catch (err) {
-			uni.hideLoading()
-			console.error('验证失败:', err)
-			// API 已经显示了错误提示
-		}
-	}
-
-	const saveEmailVerificationStatus = async () => {
-		try {
-			// 更新到后端
-			if (patientId.value) {
-				try {
-					await api.put(`/api/patients/${patientId.value}`, {
-						email: email.value,
-						emailVerified: true
-					})
-				} catch (err) {
-					console.log('后端更新验证状态失败:', err)
-				}
-			}
-
-			// 更新本地 userStore
-			userStore.setUser({
-				...userStore.userInfo,
-				email: email.value,
-				emailVerified: true,
-				isEmailVerified: true
-			})
-		} catch (error) {
-			console.error('保存验证状态失败:', error)
-		}
 	}
 
 	const saveProfile = async () => {
@@ -328,25 +162,8 @@
 		if (phone.value && !/^1[3-9]\d{9}$/.test(phone.value)) {
 			return uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
 		}
-		if (email.value && !/^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$/.test(email.value)) {
-			return uni.showToast({ title: '请输入正确的邮箱', icon: 'none' })
-		}
 
-		// 如果邮箱未验证且有邮箱，提示用户
-		if (email.value && !isEmailVerified.value) {
-			uni.showModal({
-				title: '提示',
-				content: '邮箱尚未验证，建议先验证邮箱后再保存',
-				confirmText: '继续保存',
-				cancelText: '去验证',
-				success: async (res) => {
-					if (res.confirm) {
-						await doSaveProfile()
-					}
-				}
-			})
-			return
-		}
+		// Note: removed email format validation per request to remove email verification logic
 
 		await doSaveProfile()
 	}
@@ -361,8 +178,7 @@
 					const updateData = {
 						name: name.value,
 						phone: phone.value,
-						email: email.value,
-						emailVerified: isEmailVerified.value
+						email: email.value
 					}
 					await api.put(`/api/patients/${patientId.value}`, updateData)
 				} catch (err) {
@@ -375,9 +191,7 @@
 				...userStore.userInfo,
 				name: name.value,
 				phone: phone.value,
-				email: email.value,
-				emailVerified: isEmailVerified.value,
-				isEmailVerified: isEmailVerified.value
+				email: email.value
 			})
 
 			uni.hideLoading()
@@ -394,13 +208,6 @@
 
 	onMounted(() => {
 		loadUserProfile()
-	})
-
-	onUnmounted(() => {
-		if (countDownInterval) {
-			clearInterval(countDownInterval)
-			countDownInterval = null
-		}
 	})
 </script>
 
@@ -499,60 +306,12 @@
 		font-weight: 600;
 	}
 
-	.verify-badge {
-		display: flex;
-		align-items: center;
-		margin-left: auto;
-		padding: 6rpx 16rpx;
-		border-radius: 20rpx;
-		background: #fff3cd;
-		border: 1rpx solid #f0ad4e;
-	}
-
-	.verify-badge.verified {
-		background: #d4edda;
-		border: 1rpx solid #4cd964;
-	}
-
-	.badge-text {
-		margin-left: 6rpx;
-		font-size: 22rpx;
-		color: #856404;
-		font-weight: 600;
-	}
-
-	.verify-badge.verified .badge-text {
-		color: #155724;
-	}
-
 	.info-value {
 		font-size: 32rpx;
 		color: #333;
 		padding: 20rpx 0;
 		min-height: 48rpx;
 		line-height: 48rpx;
-	}
-
-	.verified-email {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		background: #f0f9ff;
-		padding: 20rpx 24rpx;
-		border-radius: 12rpx;
-		border: 2rpx solid #4cd964;
-	}
-
-	.verified-email text {
-		flex: 1;
-		color: #155724;
-		font-weight: 600;
-	}
-
-	.lock-icon {
-		margin-left: 12rpx;
-		display: flex;
-		align-items: center;
 	}
 
 	.input-field {
@@ -574,117 +333,6 @@
 		background: #fff;
 	}
 
-	.input-with-button {
-		display: flex;
-		align-items: center;
-		gap: 12rpx;
-	}
-
-	.input-field-inline {
-		flex: 1;
-		padding: 20rpx 24rpx;
-		font-size: 30rpx;
-		color: #333;
-		border: 2rpx solid #e0e0e0;
-		border-radius: 12rpx;
-		box-sizing: border-box;
-		background: #fafafa;
-		transition: all 0.3s;
-		line-height: 1.6;
-		min-height: 88rpx;
-	}
-
-	.input-field-inline:focus {
-		border-color: #5b86e5;
-		background: #fff;
-	}
-
-	.verify-btn {
-		padding: 20rpx 24rpx;
-		font-size: 24rpx;
-		color: #fff;
-		background: linear-gradient(to right, #36d1dc, #5b86e5);
-		border: none;
-		border-radius: 12rpx;
-		white-space: nowrap;
-		box-shadow: 0 4rpx 12rpx rgba(91, 134, 229, 0.3);
-		transition: all 0.25s ease;
-		height: 88rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 160rpx;
-	}
-
-	.verify-btn:disabled {
-		opacity: 0.5;
-		background: #ccc;
-		box-shadow: none;
-	}
-
-	.verify-btn:active:not(:disabled) {
-		opacity: 0.8;
-		transform: scale(0.95);
-	}
-
-	.code-row {
-		display: flex;
-		align-items: center;
-		gap: 12rpx;
-		margin-top: 16rpx;
-		padding-top: 16rpx;
-		border-top: 1rpx dashed #e0e0e0;
-	}
-
-	.input-code {
-		flex: 1;
-		padding: 14rpx 18rpx;
-		font-size: 28rpx;
-		color: #333;
-		border: 2rpx solid #e0e0e0;
-		border-radius: 10rpx;
-		box-sizing: border-box;
-		background: #fafafa;
-		min-height: 64rpx;
-	}
-
-	.input-code:focus {
-		border-color: #5b86e5;
-		background: #fff;
-	}
-
-	.code-btn {
-		padding: 14rpx 20rpx;
-		font-size: 26rpx;
-		color: #fff;
-		background: linear-gradient(to right, #36d1dc, #5b86e5);
-		border: none;
-		border-radius: 10rpx;
-		height: 64rpx;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 140rpx;
-		box-shadow: 0 2rpx 8rpx rgba(91, 134, 229, 0.25);
-	}
-
-	.code-btn:active {
-		opacity: 0.8;
-		transform: scale(0.95);
-	}
-
-	.resend-text {
-		font-size: 24rpx;
-		color: #5b86e5;
-		margin-left: 6rpx;
-		white-space: nowrap;
-		cursor: pointer;
-	}
-
-	.resend-text.disabled {
-		color: #999;
-		cursor: not-allowed;
-	}
 
 	.button-group {
 		display: flex;
