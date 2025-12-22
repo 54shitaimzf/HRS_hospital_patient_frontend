@@ -4,7 +4,14 @@ import { getBaseUrl, setServerMode as _setServerMode, getServerMode } from '../c
 
 // 动态获取 BASE_URL 以支持 mock/prod 切换
 function resolveBaseUrl() {
-  try { return getBaseUrl() || 'http://localhost:8082'; } catch (_) { return 'http://localhost:8082'; }
+  try {
+    const url = getBaseUrl();
+    console.log('[API] 当前使用的服务器地址:', url);
+    return url || 'http://10.83.39.15:8082';
+  } catch (e) {
+    console.error('[API] getBaseUrl 异常:', e);
+    return 'http://10.83.39.15:8082';
+  }
 }
 
 function getToken() {
@@ -58,13 +65,18 @@ export function request({ url, method = 'GET', data = {}, header = {} }) {
     const reqHeader = { ...header };
     if (token) reqHeader['Authorization'] = `Bearer ${token}`;
     const BASE_URL = resolveBaseUrl();
+    const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
+
+    console.log('[API] 发起请求:', method, fullUrl);
+    console.log('[API] 请求数据:', JSON.stringify(data));
 
     uni.request({
-      url: url.startsWith('http') ? url : `${BASE_URL}${url}`,
+      url: fullUrl,
       method,
       data,
       header: reqHeader,
       success: (res) => {
+        console.log('[API] 请求成功:', fullUrl, '状态码:', res.statusCode);
         if (res.statusCode === 401) {
           handleUnauthorized();
           return reject({ code: 401, message: '未授权或登录已过期', res });
@@ -72,6 +84,8 @@ export function request({ url, method = 'GET', data = {}, header = {} }) {
         resolve(res);
       },
       fail: (err) => {
+        console.error('[API] 请求失败:', fullUrl);
+        console.error('[API] 错误详情:', JSON.stringify(err));
         uni.showToast({ title: '网络错误', icon: 'none' });
         reject(err);
       }
@@ -766,6 +780,22 @@ export async function cancelOrder(paymentId) {
   }
 }
 
+export async function fetchNavigationData(registrationId) {
+  if (!registrationId) return Promise.reject({ message: '缺少 registrationId' });
+  try {
+    const res = await api.get(`/api/registrations/${encodeURIComponent(registrationId)}/navigation`);
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      return { navigation: payload, raw: res };
+    }
+    const msg = res.data?.msg || res.data?.message || '获取导航信息失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取导航信息失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export function setServerMode(mode) { // 'mock' | 'prod'
   const ok = _setServerMode(mode);
   if (ok) {
@@ -811,6 +841,7 @@ const _keep = [
   fetchPaymentDetail,
   payOrder,
   cancelOrder,
+  fetchNavigationData,
   setServerMode,
   currentServerMode
 ];
