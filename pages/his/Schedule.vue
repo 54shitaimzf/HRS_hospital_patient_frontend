@@ -45,7 +45,13 @@
 						</view>
 					</view>
 					<view class="card-actions">
-						<button :class="['action-btn', actionClass(item)]" @click="handleAction(item)">{{ actionLabel(item) }}</button>
+						<!-- 当有剩余号源时，仅显示"预约" -->
+						<button v-if="item.leftSourceCount > 0" class="action-btn btn-reserve" @click="reserve(item)">预约</button>
+						<!-- 当无剩余号源时，同时展示"加号"和"候补"两个按钮 -->
+						<template v-else>
+							<button class="action-btn btn-extra" @click="goExtraApply(item)">加号</button>
+							<button class="action-btn btn-waiting" @click="goToWaiting(item)">候补</button>
+						</template>
 					</view>
 				</view>
 			</view>
@@ -228,64 +234,6 @@
 		return typeof val === 'string' && /^[A-Za-z0-9_-]+$/.test(val)
 	}
 
-	function actionLabel(item) {
-
-		const today = new Date().toISOString().split('T')[0]
-		if (Number(item.leftSourceCount) > 0) return '预约'
-		if (selectedDate.value === today && Number(item.leftSourceCount) === 0) return '加号'
-		return '候补'
-	}
-
-	function actionClass(item) {
-
-		const label = actionLabel(item)
-		if (label === '预约') return 'btn-reserve'
-		if (label === '加号') return 'btn-extra'
-		return 'btn-waiting'
-	}
-
-	function handleAction(item) {
-		const today = new Date().toISOString().split('T')[0]
-		if (item.leftSourceCount > 0) {
-			reserve(item)
-			return
-		}
-		if (selectedDate.value === today && Number(item.leftSourceCount) === 0) {
-
-			goExtraApply(item)
-			return
-		}
-
-		goToWaiting(item)
-	}
-
-	function goToWaiting(item) {
-		const params = [
-			`scheduleRecordId=${item.scheduleRecordId}`,
-			`departmentName=${encodeURIComponent(departmentName.value)}`,
-			`doctorName=${encodeURIComponent(item.doctorName)}`,
-			`doctorTitle=${encodeURIComponent(item.doctorTitle)}`,
-			`scheduleDate=${selectedDate.value}`,
-			`timePeriodName=${encodeURIComponent(item.timePeriodName)}`,
-			`registrationFee=${item.registrationFee}`
-		].join('&');
-		uni.navigateTo({
-			url: `/pages/his/WaitingRegistration?${params}`
-		});
-	}
-
-
-	function goExtraApply(item) {
-		const params = [
-			`deptId=${encodeURIComponent(departmentId.value || '')}`,
-			`deptName=${encodeURIComponent(departmentName.value || '')}`,
-			`doctorId=${encodeURIComponent(item.doctorId || '')}`,
-			`doctorName=${encodeURIComponent(item.doctorName || '')}`,
-			`scheduleDate=${encodeURIComponent(selectedDate.value)}`
-		].join('&');
-		uni.navigateTo({ url: `/pages/his/ExtraApply?${params}` });
-	}
-
 	async function reserve(item) {
 		const pid = await userStore.ensurePatientId()
 		const patientId = pid || getPatientId()
@@ -337,6 +285,49 @@
 			}
 		})
 	}
+
+	// 跳转到加号申请页面
+	async function goExtraApply(item) {
+		const pid = await userStore.ensurePatientId()
+		const patientId = pid || getPatientId()
+		if (!patientId || !isValidCode(patientId)) {
+			uni.showModal({
+				title: '请先登录',
+				content: '加号申请需要登录账户。是否前往登录？',
+				success: (res) => {
+					if (res.confirm) uni.navigateTo({ url: '/pages/login/Login' })
+				}
+			})
+			return
+		}
+
+		// 跳转到加号申请页面，传递必要参数
+		uni.navigateTo({
+			url: `/pages/his/ExtraApply?scheduleRecordId=${item.scheduleRecordId}&doctorName=${encodeURIComponent(item.doctorName)}&departmentName=${encodeURIComponent(departmentName.value)}&date=${selectedDate.value}&timePeriod=${encodeURIComponent(item.timePeriodName)}`
+		})
+	}
+
+	// 跳转到候补挂号页面
+	async function goToWaiting(item) {
+		const pid = await userStore.ensurePatientId()
+		const patientId = pid || getPatientId()
+		if (!patientId || !isValidCode(patientId)) {
+			uni.showModal({
+				title: '请先登录',
+				content: '候补挂号需要登录账户。是否前往登录？',
+				success: (res) => {
+					if (res.confirm) uni.navigateTo({ url: '/pages/login/Login' })
+				}
+			})
+			return
+		}
+
+		// 跳转到候补挂号页面，传递必要参数
+		uni.navigateTo({
+			url: `/pages/his/WaitingRegistration?scheduleRecordId=${item.scheduleRecordId}&doctorName=${encodeURIComponent(item.doctorName)}&doctorTitle=${encodeURIComponent(item.doctorTitle || '')}&departmentName=${encodeURIComponent(departmentName.value)}&scheduleDate=${selectedDate.value}&timePeriodName=${encodeURIComponent(item.timePeriodName)}&registrationFee=${item.registrationFee}`
+		})
+	}
+
 </script>
 
 <style scoped>
@@ -382,11 +373,11 @@
 
 .schedule-time-text { margin-top:8px; font-size:13px; color:#333; }
 
-.card-actions { flex-shrink:0; margin-left:12px; display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
-.action-btn { min-width:110px; padding: 0 12px; height:40px; line-height:40px; font-size:15px; border-radius:8px; color:#fff; border:none; }
+.card-actions { flex-shrink:0; margin-left:12px; display:flex; flex-direction:column; gap:8px; align-items:flex-end; justify-content:center; min-width:110px; }
+.action-btn { width:110px; padding: 0 12px; height:40px; line-height:40px; font-size:15px; border-radius:8px; color:#fff; border:none; }
 .btn-reserve { background: linear-gradient(135deg,#1a73e8 0%,#004080 100%); }
-.btn-extra { background: #6c757d; }
-.btn-waiting { background: #ff7f00; }
+.btn-extra { background: linear-gradient(135deg,#1a73e8 0%,#0056b3 100%); }
+.btn-waiting { background: linear-gradient(135deg,#1a73e8 0%,#004080 100%); }
 
 /* 中央浮窗样式调整（确保居中显示） */
 .modal-overlay { position: fixed; left:0; right:0; top:0; bottom:0; background: rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:1000; padding:16px; }
@@ -409,5 +400,6 @@
 .section { margin-bottom:14px; }
 .section-title { font-weight:800; color:#222; font-size:15px; margin-bottom:8px; display:block; padding-bottom:6px; border-bottom:1px solid #f5f5f5; }
 .section-body { color:#7a8088; line-height:1.7; padding-top:8px; }
+
 
 </style>

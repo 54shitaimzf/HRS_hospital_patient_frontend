@@ -77,13 +77,13 @@
 	const myPosition = ref(0); // 0 表示未在队列
 
 	onLoad((options) => {
-		scheduleRecordId.value = options.scheduleRecordId;
-		departmentName.value = decodeURIComponent(options.departmentName);
-		doctorName.value = decodeURIComponent(options.doctorName);
-		doctorTitle.value = decodeURIComponent(options.doctorTitle);
-		scheduleDate.value = options.scheduleDate;
-		timePeriodName.value = decodeURIComponent(options.timePeriodName);
-		registrationFee.value = options.registrationFee;
+		scheduleRecordId.value = options.scheduleRecordId || '';
+		departmentName.value = decodeURIComponent(options.departmentName || '');
+		doctorName.value = decodeURIComponent(options.doctorName || '');
+		doctorTitle.value = decodeURIComponent(options.doctorTitle || '');
+		scheduleDate.value = options.scheduleDate || '';
+		timePeriodName.value = decodeURIComponent(options.timePeriodName || '');
+		registrationFee.value = options.registrationFee || 0;
 
 		uni.setNavigationBarTitle({
 			title: '候补挂号'
