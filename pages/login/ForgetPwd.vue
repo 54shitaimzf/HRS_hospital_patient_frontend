@@ -14,7 +14,7 @@
 
 			<view class="input-group code-group">
 				<uni-icons type="chatbox-ellipses" size="24" color="#409EFF" />
-				<input v-model="code" type="number" placeholder="请输入验证码" class="input code-input" />
+				<input v-model="code" type="number" placeholder="请输入验证码" class="input code-input" maxlength="6" />
 				<button :disabled="countdown > 0 || !email" class="send-code-btn" @click="sendCode">
 					{{ countdown > 0 ? countdown + 's 后重发' : '获取验证码' }}
 				</button>
@@ -25,7 +25,12 @@
 				<input v-model="newPassword" type="password" placeholder="请输入新密码" class="input" />
 			</view>
 
-			<button class="reset-btn" :class="{ active: email && code && newPassword }" @click="handleReset"
+			<view class="input-group">
+				<uni-icons type="locked" size="24" color="#409EFF" />
+				<input v-model="confirmPassword" type="password" placeholder="请再次输入新密码" class="input" />
+			</view>
+
+			<button class="reset-btn" :class="{ active: email && code && newPassword && confirmPassword }" @click="handleReset"
 				hover-class="button-hover">
 				重置密码
 			</button>
@@ -37,13 +42,15 @@
 </template>
 
 <script setup>
-	import { ref } from 'vue'
+	import { ref, onUnmounted } from 'vue'
 	import { onLoad } from '@dcloudio/uni-app'
+	import { sendPasswordResetCode, confirmPasswordReset } from '../../utils/api.js'
 
 	// 将手机号验证改为邮箱验证
 	const email = ref('')
 	const code = ref('')
 	const newPassword = ref('')
+	const confirmPassword = ref('')
 	const countdown = ref(0)
 	let timer = null
 
@@ -51,11 +58,19 @@
 
 	})
 
+	onUnmounted(() => {
+		// 清理定时器
+		if (timer) {
+			clearInterval(timer)
+			timer = null
+		}
+	})
+
 	const isValidEmail = (str) => {
 		return /^[\w-]+(\.[\w-]+)*@[\w-]+(\.[\w-]+)+$/.test(str)
 	}
 
-	const sendCode = () => {
+	const sendCode = async () => {
 		if (!email.value) {
 			uni.showToast({ title: '请输入邮箱', icon: 'none' })
 			return
@@ -65,21 +80,28 @@
 			return
 		}
 
-		// 这里应该调用后端接口发送邮箱验证码；当前为本地模拟
-		uni.showToast({ title: '验证码已发送（模拟）', icon: 'success' })
-		countdown.value = 60
-		if (timer) clearInterval(timer)
-		timer = setInterval(() => {
-			countdown.value--
-			if (countdown.value <= 0) {
-				clearInterval(timer)
-				timer = null
-			}
-		}, 1000)
+		try {
+			// 调用真实的密码重置验证码发送接口
+			await sendPasswordResetCode({ email: email.value })
+
+			// 启动倒计时
+			countdown.value = 60
+			if (timer) clearInterval(timer)
+			timer = setInterval(() => {
+				countdown.value--
+				if (countdown.value <= 0) {
+					clearInterval(timer)
+					timer = null
+				}
+			}, 1000)
+		} catch (err) {
+			console.error('发送验证码失败:', err)
+			// API 已经显示了错误提示，这里不需要重复显示
+		}
 	}
 
-	const handleReset = () => {
-		if (!email.value || !code.value || !newPassword.value) {
+	const handleReset = async () => {
+		if (!email.value || !code.value || !newPassword.value || !confirmPassword.value) {
 			uni.showToast({ title: '请填写完整信息', icon: 'none' })
 			return
 		}
@@ -87,14 +109,47 @@
 			uni.showToast({ title: '请输入正确的邮箱格式', icon: 'none' })
 			return
 		}
+		if (code.value.length !== 6) {
+			uni.showToast({ title: '请输入6位验证码', icon: 'none' })
+			return
+		}
+		if (newPassword.value !== confirmPassword.value) {
+			uni.showToast({ title: '两次密码不一致', icon: 'none' })
+			return
+		}
+		if (newPassword.value.length < 6) {
+			uni.showToast({ title: '密码长度不能少于6位', icon: 'none' })
+			return
+		}
 
-		uni.showLoading({ title: '提交中...' })
-		setTimeout(() => {
+		try {
+			uni.showLoading({ title: '提交中...' })
+
+			// 调用真实的密码重置确认接口
+			await confirmPasswordReset({
+				email: email.value,
+				code: code.value,
+				newPassword: newPassword.value,
+				confirmPassword: confirmPassword.value
+			})
+
 			uni.hideLoading()
-			uni.showToast({ title: '密码重置成功', icon: 'success' })
 
-			uni.navigateBack()
-		}, 1500)
+			// 清理定时器
+			if (timer) {
+				clearInterval(timer)
+				timer = null
+			}
+
+			// 延迟跳转，让用户看到成功提示
+			setTimeout(() => {
+				uni.navigateBack()
+			}, 1500)
+		} catch (err) {
+			uni.hideLoading()
+			console.error('重置密码失败:', err)
+			// API 已经显示了错误提示
+		}
 	}
 
 	const goLogin = () => {

@@ -382,6 +382,114 @@ export async function registerUser(registerData = {}) {
   }
 }
 
+export async function sendEmailVerification({ email, scene = 'REGISTER' }) {
+  if (!email) return Promise.reject({ message: '缺少邮箱地址' });
+  try {
+    const res = await api.post('/api/email-verification/send', { email, scene });
+    if (res.statusCode === 200 && res.data?.code === 200) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '验证码已发送', icon: 'success' });
+      return {
+        email: payload.email || email,
+        scene: payload.scene || scene,
+        expireSeconds: payload.expireSeconds || 300,
+        raw: res
+      };
+    }
+    const msg = res.data?.msg || res.data?.message || '发送验证码失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '发送验证码失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function verifyEmailCode({ email, code, scene = 'REGISTER' }) {
+  if (!email || !code) return Promise.reject({ message: '缺少邮箱或验证码' });
+  try {
+    const res = await api.post('/api/email-verification/verify', { email, code, scene });
+    if (res.statusCode === 200 && res.data?.code === 200) {
+      const payload = res.data?.data ?? res.data;
+      const verified = payload.verified === true;
+      if (verified) {
+        uni.showToast({ title: '验证成功', icon: 'success' });
+      }
+      return {
+        verified,
+        email: payload.email || email,
+        scene: payload.scene || scene,
+        raw: res
+      };
+    }
+    const msg = res.data?.msg || res.data?.message || '验证码错误';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, verified: false, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '验证失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function sendPasswordResetCode({ email }) {
+  if (!email) return Promise.reject({ message: '缺少邮箱地址' });
+  try {
+    const res = await api.post('/api/password-reset/send', { email });
+    if (res.statusCode === 200 && res.data?.code === 200) {
+      const payload = res.data?.data ?? res.data;
+      uni.showToast({ title: '验证码已发送', icon: 'success' });
+      return {
+        email: payload.email || email,
+        scene: payload.scene || 'RESET_PASSWORD',
+        expireSeconds: payload.expireSeconds || 300,
+        raw: res
+      };
+    }
+    const msg = res.data?.msg || res.data?.message || '发送验证码失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '发送验证码失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
+export async function confirmPasswordReset({ email, code, newPassword, confirmPassword }) {
+  if (!email || !code || !newPassword || !confirmPassword) {
+    return Promise.reject({ message: '缺少必填参数' });
+  }
+  if (newPassword !== confirmPassword) {
+    uni.showToast({ title: '两次密码不一致', icon: 'none' });
+    return Promise.reject({ message: '两次密码不一致', reset: false });
+  }
+  try {
+    const res = await api.post('/api/password-reset/confirm', {
+      email,
+      code,
+      newPassword,
+      confirmPassword
+    });
+    if (res.statusCode === 200 && res.data?.code === 200) {
+      const payload = res.data?.data ?? res.data;
+      const reset = payload.reset === true;
+      if (reset) {
+        uni.showToast({ title: '密码重置成功', icon: 'success' });
+      }
+      return {
+        reset,
+        email: payload.email || email,
+        raw: res
+      };
+    }
+    const msg = res.data?.msg || res.data?.message || '重置密码失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, reset: false, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '重置密码失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export async function createRegistration({ patientId, scheduleRecordId, confirm = true }) {
   if (!patientId) return Promise.reject({ message: '缺少 patientId' });
   if (!scheduleRecordId) return Promise.reject({ message: '缺少 scheduleRecordId' });
@@ -777,7 +885,7 @@ export function setServerMode(mode) { // 'mock' | 'prod'
 }
 export function currentServerMode() { return getServerMode(); }
 
-// 利用数组引用所有导出函数，避免“未使用”告警；不会执行网络请求
+// 利用数组引用所有导出函数，避免"未使用"告警；不会执行网络请求
 const _keep = [
   fetchRegistrations,
   fetchWaitingRegistrations,
@@ -793,6 +901,10 @@ const _keep = [
   fetchUnreadMessages,
   loginUser,
   registerUser,
+  sendEmailVerification,
+  verifyEmailCode,
+  sendPasswordResetCode,
+  confirmPasswordReset,
   createRegistration,
   fetchRegistrationByKey,
   submitExtraApply,

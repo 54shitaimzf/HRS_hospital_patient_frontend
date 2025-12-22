@@ -51,42 +51,53 @@
 				<view v-else class="info-value">{{ phone || '未设置' }}</view>
 			</view>
 
-		<view class="form-item">
-			<view class="label-row">
-				<uni-icons type="email" size="18" color="#666" />
-				<text class="label">邮箱</text>
-				<view v-if="!isEditing && email" class="verify-badge" :class="{ verified: isEmailVerified }">
-					<uni-icons :type="isEmailVerified ? 'checkmarkempty' : 'info'" size="14" :color="isEmailVerified ? '#4cd964' : '#f0ad4e'" />
-					<text class="badge-text">{{ isEmailVerified ? '已验证' : '未验证' }}</text>
+			<view class="form-item">
+				<view class="label-row">
+					<uni-icons type="email" size="18" color="#666" />
+					<text class="label">邮箱</text>
+					<view v-if="email" class="verify-badge" :class="{ verified: isEmailVerified }">
+						<uni-icons :type="isEmailVerified ? 'checkmarkempty' : 'info'" size="14" :color="isEmailVerified ? '#4cd964' : '#f0ad4e'" />
+						<text class="badge-text">{{ isEmailVerified ? '已验证' : '未验证' }}</text>
+					</view>
 				</view>
-			</view>
-			<view v-if="isEditing" class="input-with-button">
-				<input
-					v-model="email"
-					class="input-field-inline"
-					placeholder="请输入邮箱"
-					type="email"
-				/>
-				<button class="verify-btn" :disabled="countDown>0" @click="verifyEmail">{{ countDown>0 ? (countDown + 's') : '验证' }}</button>
-			</view>
-			<view v-else class="info-value">{{ email || '未设置' }}</view>
 
-			<!-- Compact code row shown after clicking 验证; keeps layout minimal -->
-			<view v-if="isEditing && showCodeInput" class="code-row">
-				<input v-model="verificationCode" class="input-code" placeholder="请输入验证码" />
-				<button class="code-btn" @click="submitVerification">确认</button>
-				<text class="resend-text" v-if="countDown===0" @click="verifyEmail">重发</text>
-				<text class="resend-text" v-else>{{ countDown }}s后可重发</text>
-			</view>
-
-			</view>
-
-
-		<view v-if="isEditing" class="button-group">
-					<!-- 保存在上，使用醒目的绿色样式；取消在下，使用低调灰色 -->
-					<button class="btn-save" @click="saveProfile">保存</button>
-					<button class="btn-cancel" @click="cancelEdit">取消</button>
+				<!-- 已验证的邮箱：编辑模式下也不可修改 -->
+				<view v-if="isEmailVerified" class="info-value verified-email">
+					<text>{{ email }}</text>
+					<view class="lock-icon">
+						<uni-icons type="locked" size="16" color="#4cd964" />
+					</view>
 				</view>
+
+				<!-- 未验证的邮箱：编辑模式下可以修改和验证 -->
+				<template v-else>
+					<view v-if="isEditing" class="input-with-button">
+						<input
+							v-model="email"
+							class="input-field-inline"
+							placeholder="请输入邮箱"
+							type="email"
+						/>
+						<button class="verify-btn" :disabled="countDown > 0 || !email" @click="sendVerificationCode">
+							{{ countDown > 0 ? (countDown + 's') : '发送验证码' }}
+						</button>
+					</view>
+					<view v-else class="info-value">{{ email || '未设置' }}</view>
+
+					<!-- 验证码输入行 -->
+					<view v-if="isEditing && showCodeInput" class="code-row">
+						<input v-model="verificationCode" class="input-code" placeholder="请输入6位验证码" maxlength="6" type="number" />
+						<button class="code-btn" @click="submitVerification">确认验证</button>
+						<text class="resend-text" v-if="countDown === 0" @click="sendVerificationCode">重新发送</text>
+						<text class="resend-text disabled" v-else>{{ countDown }}s</text>
+					</view>
+				</template>
+			</view>
+
+			<view v-if="isEditing" class="button-group">
+				<button class="btn-save" @click="saveProfile">保存</button>
+				<button class="btn-cancel" @click="cancelEdit">取消</button>
+			</view>
 		</view>
 	</view>
 </template>
@@ -94,7 +105,7 @@
 <script setup>
 	import { ref, onMounted, onUnmounted } from 'vue'
 	import { useUserStore } from '../../store/user.js'
-	import { api } from '../../utils/api.js'
+	import { api, sendEmailVerification, verifyEmailCode } from '../../utils/api.js'
 
 	const userStore = useUserStore()
 
@@ -110,7 +121,7 @@
 	// 保存原始数据用于取消编辑
 	const originalData = ref({})
 
-	// 新增：验证码相关
+	// 验证码相关
 	const showCodeInput = ref(false)
 	const verificationCode = ref('')
 	const countDown = ref(0)
@@ -136,6 +147,8 @@
 						name.value = patientData.name || patientData.patientName || ''
 						phone.value = patientData.phone || patientData.mobile || patientData.phoneNumber || ''
 						email.value = patientData.email || ''
+						// 从后端获取邮箱验证状态
+						isEmailVerified.value = patientData.emailVerified === true || patientData.isEmailVerified === true
 					}
 				} catch (err) {
 					console.log('从后端获取患者信息失败，使用本地数据:', err)
@@ -143,12 +156,15 @@
 					name.value = userStore.userInfo?.name || userStore.userInfo?.patientName || ''
 					phone.value = userStore.userInfo?.phone || userStore.userInfo?.mobile || ''
 					email.value = userStore.userInfo?.email || ''
+					// 从本地存储获取验证状态
+					isEmailVerified.value = userStore.userInfo?.emailVerified === true || userStore.userInfo?.isEmailVerified === true
 				}
 			} else {
 				// 如果没有 patientId，使用本地数据
 				name.value = userStore.userInfo?.name || userStore.userInfo?.patientName || ''
 				phone.value = userStore.userInfo?.phone || userStore.userInfo?.mobile || ''
 				email.value = userStore.userInfo?.email || ''
+				isEmailVerified.value = userStore.userInfo?.emailVerified === true || userStore.userInfo?.isEmailVerified === true
 			}
 
 			// 保存原始数据
@@ -165,7 +181,8 @@
 		originalData.value = {
 			name: name.value,
 			phone: phone.value,
-			email: email.value
+			email: email.value,
+			isEmailVerified: isEmailVerified.value
 		}
 	}
 
@@ -179,6 +196,7 @@
 		name.value = originalData.value.name
 		phone.value = originalData.value.phone
 		email.value = originalData.value.email
+		isEmailVerified.value = originalData.value.isEmailVerified
 		isEditing.value = false
 		// 清除验证码相关
 		showCodeInput.value = false
@@ -190,7 +208,7 @@
 		}
 	}
 
-	const verifyEmail = () => {
+	const sendVerificationCode = async () => {
 		// 校验邮箱格式
 		if (!email.value) {
 			return uni.showToast({ title: '请先输入邮箱', icon: 'none' })
@@ -199,21 +217,36 @@
 			return uni.showToast({ title: '请输入正确的邮箱格式', icon: 'none' })
 		}
 
-		// 模拟发送验证码：显示输入框并启动倒计时，保持界面紧凑
-		showCodeInput.value = true
-		verificationCode.value = ''
-		countDown.value = 60
-		if (countDownInterval) clearInterval(countDownInterval)
-		countDownInterval = setInterval(() => {
-			if (countDown.value > 0) {
-				countDown.value -= 1
-			} else {
-				clearInterval(countDownInterval)
-				countDownInterval = null
-			}
-		}, 1000)
+		try {
+			uni.showLoading({ title: '发送中...' })
 
-		uni.showToast({ title: '验证码已发送（模拟）', icon: 'none' })
+			// 调用真实的邮箱验证码发送接口
+			await sendEmailVerification({
+				email: email.value,
+				scene: 'PROFILE_VERIFY' // 个人资料验证场景
+			})
+
+			uni.hideLoading()
+
+			// 显示验证码输入框并启动倒计时
+			showCodeInput.value = true
+			verificationCode.value = ''
+			countDown.value = 60
+
+			if (countDownInterval) clearInterval(countDownInterval)
+			countDownInterval = setInterval(() => {
+				if (countDown.value > 0) {
+					countDown.value -= 1
+				} else {
+					clearInterval(countDownInterval)
+					countDownInterval = null
+				}
+			}, 1000)
+		} catch (err) {
+			uni.hideLoading()
+			console.error('发送验证码失败:', err)
+			// API 已经显示了错误提示，这里不需要重复显示
+		}
 	}
 
 	const submitVerification = async () => {
@@ -221,25 +254,69 @@
 			return uni.showToast({ title: '请输入验证码', icon: 'none' })
 		}
 
-		// 这里应调用后端接口校验验证码；当前模拟成功
+		if (verificationCode.value.length !== 6) {
+			return uni.showToast({ title: '请输入6位验证码', icon: 'none' })
+		}
+
 		try {
 			uni.showLoading({ title: '验证中...' })
-			// 模拟网络延迟
-			await new Promise((r) => setTimeout(r, 700))
+
+			// 调用真实的邮箱验证码校验接口
+			const result = await verifyEmailCode({
+				email: email.value,
+				code: verificationCode.value,
+				scene: 'PROFILE_VERIFY'
+			})
+
 			uni.hideLoading()
-			isEmailVerified.value = true
-			showCodeInput.value = false
-			verificationCode.value = ''
-			countDown.value = 0
-			if (countDownInterval) {
-				clearInterval(countDownInterval)
-				countDownInterval = null
+
+			if (result.verified) {
+				// 验证成功
+				isEmailVerified.value = true
+				showCodeInput.value = false
+				verificationCode.value = ''
+				countDown.value = 0
+
+				if (countDownInterval) {
+					clearInterval(countDownInterval)
+					countDownInterval = null
+				}
+
+				// 立即保存验证状态到后端和本地
+				await saveEmailVerificationStatus()
+
+				uni.showToast({ title: '邮箱验证成功', icon: 'success' })
 			}
-			uni.showToast({ title: '验证成功', icon: 'success' })
 		} catch (err) {
 			uni.hideLoading()
-			console.error('验证失败', err)
-			uni.showToast({ title: '验证失败', icon: 'none' })
+			console.error('验证失败:', err)
+			// API 已经显示了错误提示
+		}
+	}
+
+	const saveEmailVerificationStatus = async () => {
+		try {
+			// 更新到后端
+			if (patientId.value) {
+				try {
+					await api.put(`/api/patients/${patientId.value}`, {
+						email: email.value,
+						emailVerified: true
+					})
+				} catch (err) {
+					console.log('后端更新验证状态失败:', err)
+				}
+			}
+
+			// 更新本地 userStore
+			userStore.setUser({
+				...userStore.userInfo,
+				email: email.value,
+				emailVerified: true,
+				isEmailVerified: true
+			})
+		} catch (error) {
+			console.error('保存验证状态失败:', error)
 		}
 	}
 
@@ -255,6 +332,26 @@
 			return uni.showToast({ title: '请输入正确的邮箱', icon: 'none' })
 		}
 
+		// 如果邮箱未验证且有邮箱，提示用户
+		if (email.value && !isEmailVerified.value) {
+			uni.showModal({
+				title: '提示',
+				content: '邮箱尚未验证，建议先验证邮箱后再保存',
+				confirmText: '继续保存',
+				cancelText: '去验证',
+				success: async (res) => {
+					if (res.confirm) {
+						await doSaveProfile()
+					}
+				}
+			})
+			return
+		}
+
+		await doSaveProfile()
+	}
+
+	const doSaveProfile = async () => {
 		try {
 			uni.showLoading({ title: '保存中...' })
 
@@ -264,7 +361,8 @@
 					const updateData = {
 						name: name.value,
 						phone: phone.value,
-						email: email.value
+						email: email.value,
+						emailVerified: isEmailVerified.value
 					}
 					await api.put(`/api/patients/${patientId.value}`, updateData)
 				} catch (err) {
@@ -277,7 +375,9 @@
 				...userStore.userInfo,
 				name: name.value,
 				phone: phone.value,
-				email: email.value
+				email: email.value,
+				emailVerified: isEmailVerified.value,
+				isEmailVerified: isEmailVerified.value
 			})
 
 			uni.hideLoading()
@@ -399,12 +499,60 @@
 		font-weight: 600;
 	}
 
+	.verify-badge {
+		display: flex;
+		align-items: center;
+		margin-left: auto;
+		padding: 6rpx 16rpx;
+		border-radius: 20rpx;
+		background: #fff3cd;
+		border: 1rpx solid #f0ad4e;
+	}
+
+	.verify-badge.verified {
+		background: #d4edda;
+		border: 1rpx solid #4cd964;
+	}
+
+	.badge-text {
+		margin-left: 6rpx;
+		font-size: 22rpx;
+		color: #856404;
+		font-weight: 600;
+	}
+
+	.verify-badge.verified .badge-text {
+		color: #155724;
+	}
+
 	.info-value {
 		font-size: 32rpx;
 		color: #333;
 		padding: 20rpx 0;
 		min-height: 48rpx;
 		line-height: 48rpx;
+	}
+
+	.verified-email {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		background: #f0f9ff;
+		padding: 20rpx 24rpx;
+		border-radius: 12rpx;
+		border: 2rpx solid #4cd964;
+	}
+
+	.verified-email text {
+		flex: 1;
+		color: #155724;
+		font-weight: 600;
+	}
+
+	.lock-icon {
+		margin-left: 12rpx;
+		display: flex;
+		align-items: center;
 	}
 
 	.input-field {
@@ -452,8 +600,8 @@
 	}
 
 	.verify-btn {
-		padding: 20rpx 28rpx;
-		font-size: 26rpx;
+		padding: 20rpx 24rpx;
+		font-size: 24rpx;
 		color: #fff;
 		background: linear-gradient(to right, #36d1dc, #5b86e5);
 		border: none;
@@ -465,19 +613,27 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		min-width: 160rpx;
 	}
 
-	.verify-btn:active {
+	.verify-btn:disabled {
+		opacity: 0.5;
+		background: #ccc;
+		box-shadow: none;
+	}
+
+	.verify-btn:active:not(:disabled) {
 		opacity: 0.8;
 		transform: scale(0.95);
 	}
 
-	/* 新增：验证码行，保持页面紧凑 */
 	.code-row {
 		display: flex;
 		align-items: center;
 		gap: 12rpx;
-		margin-top: 12rpx;
+		margin-top: 16rpx;
+		padding-top: 16rpx;
+		border-top: 1rpx dashed #e0e0e0;
 	}
 
 	.input-code {
@@ -508,15 +664,28 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		min-width: 140rpx;
+		box-shadow: 0 2rpx 8rpx rgba(91, 134, 229, 0.25);
+	}
+
+	.code-btn:active {
+		opacity: 0.8;
+		transform: scale(0.95);
 	}
 
 	.resend-text {
 		font-size: 24rpx;
 		color: #5b86e5;
 		margin-left: 6rpx;
+		white-space: nowrap;
+		cursor: pointer;
 	}
 
-	/* 按钮组：横向排列，左右填充整行，各占一半；保持按钮高度不变 */
+	.resend-text.disabled {
+		color: #999;
+		cursor: not-allowed;
+	}
+
 	.button-group {
 		display: flex;
 		flex-direction: row;
@@ -524,10 +693,9 @@
 		margin-top: 8rpx;
 	}
 
-	/* 两个按钮各自占据一半宽度，保持原有高度与视觉样式 */
 	.button-group > button {
 		flex: 1 1 0;
-		min-width: 0; /* 防止内容撑开 */
+		min-width: 0;
 	}
 
 	.btn-save {
@@ -538,7 +706,7 @@
 		border: none;
 		border-radius: 14rpx;
 		box-shadow: 0 6rpx 18rpx rgba(76, 217, 100, 0.2);
-		height: 96rpx; /* 保持原有高度 */
+		height: 96rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -557,7 +725,7 @@
 		background: #f7f7f8;
 		border: 1rpx solid #e6e6e6;
 		border-radius: 12rpx;
-		height: 88rpx; /* 保持原有高度 */
+		height: 88rpx;
 		display: flex;
 		align-items: center;
 		justify-content: center;
