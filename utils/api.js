@@ -93,13 +93,14 @@ export const api = {
   put: (url, body = {}, header = {}) => request({ url, method: 'PUT', data: body, header }),
 };
 
-export async function fetchRegistrations({ patientId, page = 1, pageSize = 20, status, date, fromDate, toDate }) {
+export async function fetchRegistrations({ patientId, page = 1, pageSize = 20, status, date, fromDate, toDate, departmentId } = {}) {
   if (!patientId) return Promise.reject({ message: '缺少 patientId' });
   const params = { patientId, page, pageSize };
   if (status && status !== '全部') params.status = status; // 支持逗号分隔多状态，页面可自行传入
   if (date) params.date = date;
   if (fromDate) params.fromDate = fromDate;
   if (toDate) params.toDate = toDate;
+  if (departmentId) params.departmentId = departmentId;
   try {
     const res = await api.get('/api/registrations', params);
     // 后端可能返回 {page,pageSize,total,items} 或 {code,data:{...}}

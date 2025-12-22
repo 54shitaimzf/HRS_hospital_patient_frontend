@@ -18,7 +18,8 @@
 
         <view class="actions">
           <button v-if="item.payStatus === '待支付'" size="mini" class="pay-btn" @click="goToPay(item)">去支付</button>
-          <button v-if="item.payStatus !== '已取消'" size="mini" class="cancel-btn" @click="cancel(item)">取消订单</button>
+          <!-- 已支付的订单不可取消 -->
+          <button v-if="item.payStatus !== '已取消' && item.payStatus !== '已支付'" size="mini" class="cancel-btn" @click="cancel(item)">取消订单</button>
         </view>
       </view>
     </view>
@@ -26,7 +27,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useUserStore } from '../../store/user.js'
 import { fetchPayments, cancelOrder } from '../../utils/api.js'
@@ -74,12 +75,23 @@ function goToPay(item) {
 }
 
 async function cancel(item) {
-  const res = await uni.showModal({
-    title: '确认取消',
-    content: '确定要取消该订单吗？' + (item.payStatus === '已支付' ? ' (已支付订单取消后将退回号源)' : ''),
-    confirmColor: '#ff4d4f'
+  // Prevent cancelling paid orders here as an extra guard
+  if (item?.payStatus === '已支付') {
+    uni.showToast({ title: '已支付订单无法取消', icon: 'none' })
+    return
+  }
+
+  const res = await new Promise((resolve) => {
+    uni.showModal({
+      title: '确认取消',
+      content: '确定要取消该订单吗？',
+      confirmColor: '#ff4d4f',
+      success: (r) => resolve(r),
+      fail: () => resolve({ confirm: false })
+    })
   })
-  if (res.confirm) {
+
+  if (res && res.confirm) {
     try {
       await cancelOrder(item.paymentId)
       loadOrders() // 刷新列表
