@@ -37,7 +37,8 @@
 
       <view v-for="item in registrations" :key="item.patientId + '_' + item.scheduleRecordId" class="card">
         <view class="card-header">
-          <text class="date">{{ item.scheduleDate }} {{ item.timePeriodName }}</text>
+          <!-- 显示为“就诊时间”（优先查找真实就诊/就诊打卡时间），回退到预约时间 -->
+          <text class="date">{{ formatVisitDateTime(item) }}</text>
           <text class="status" :class="statusClass(item.status)">{{ item.status || '—' }}</text>
         </view>
         <view class="line"><text class="label">科室:</text><text class="value">{{ item.departmentName || item.departmentId || '—' }}</text></view>
@@ -202,10 +203,159 @@ function statusClass(st){
     : st === '就诊中' ? 'st-inprogress'
     : 'st-default'
 }
+
+// Improved date/time helpers: robust parsing and mapping of time-period names to concrete ranges
+function pad(n){ return String(n).padStart(2,'0') }
+function formatDateObj(d){
+  if(!d || !(d instanceof Date) || isNaN(d)) return null
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function tryParseISO(v){
+  if(!v) return null
+  // Accept numbers (timestamp), Date strings like 2023-01-02 or 2023-01-02T08:00:00
+  if(typeof v === 'number') return formatDateObj(new Date(v))
+  if(typeof v !== 'string') return null
+  // clean common timezone fragments
+  const s = v.trim()
+  // try Date constructor
+  const d = new Date(s)
+  if(!isNaN(d)) return formatDateObj(d)
+  // fallback: try to extract date and time parts
+  const m = s.match(/(\d{4}-\d{1,2}-\d{1,2})(?:[ T]?(\d{1,2}:\d{1,2}(?::\d{1,2})?))?/)
+  if(m){
+    try{
+      const datePart = m[1]
+      const timePart = m[2] || '00:00'
+      const dd = new Date(datePart + 'T' + timePart.replace(/:\d{1,2}$/,'') + ':00')
+      if(!isNaN(dd)) return formatDateObj(dd)
+    }catch(_){}
+  }
+  return null
+}
+
+function mapTimePeriod(tp){
+  if(!tp) return ''
+  const s = String(tp).trim()
+  if(/\d{1,2}:\d{2}/.test(s)) return s // already a time
+  const low = s.toLowerCase()
+  // common Chinese labels -> concrete ranges
+  if(/早|晨|上午/.test(s)) return '08:00-12:00' // 上午
+  if(/中午|午间|午/.test(s)) return '12:00-13:30'
+  if(/下午/.test(s)) return '13:30-17:30'
+  if(/晚|晚上|夜|夜间/.test(s)) return '18:00-21:00'
+  if(/全天/.test(low)) return '00:00-23:59'
+  // english
+  if(/morning/.test(low)) return '08:00-12:00'
+  if(/afternoon/.test(low)) return '13:30-17:30'
+  if(/evening|night/.test(low)) return '18:00-21:00'
+  // if it's a short label like AM/PM
+  if(/^am$/i.test(s)) return '08:00-12:00'
+  if(/^pm$/i.test(s)) return '13:30-17:30'
+  // default: return original
+  return s
+}
+
 function formatTime(t){
   if(!t) return '—';
-  return (t+'').replace('T',' ').substring(0,19)
+  // try multiple shapes
+  const candidates = [t]
+  // if object with time property
+  if(typeof t === 'object'){
+    candidates.push(t.registerTime, t.createTime, t.time, t.datetime)
+  }
+  for(const c of candidates){
+    const parsed = tryParseISO(c)
+    if(parsed) return parsed
+  }
+  // fallback to string trimming
+  try{
+    const s = String(t)
+    if(s.length >= 16) return s.replace('T',' ').substring(0,16)
+    return s
+  }catch(_){ return '—' }
 }
+
+// New: prefer explicit 就诊/到诊时间 fields, then fall back to appointment/schedule times.
+function formatVisitDateTime(item) {
+  if (!item) return '—';
+
+  // Common field names that represent actual visit/check-in/treatment time (priority order)
+  const visitKeys = [
+    'visitTime','treatmentTime','consultationTime','visitDateTime','attendTime','attendAt','actualVisitTime',
+    'seeDoctorTime','checkinTime','seenTime','seeTime','visit_time','treatment_time','checkin_time','attend_time'
+  ];
+
+  // helper to try a value and return formatted string if found
+  const tryValue = (v) => {
+    if (!v && v !== 0) return null;
+    const p = tryParseISO(v);
+    if (p) return p;
+    try { return String(v); } catch (_) { return null; }
+  };
+
+  // 1) search top-level visit-like fields
+  for (const k of visitKeys) {
+    const val = item[k];
+    const out = tryValue(val);
+    if (out) return out;
+  }
+
+  // 2) search in likely nested objects (visit/treatment/checkin)
+  const nests = ['visit','treatment','checkin','attend','schedule'];
+  for (const n of nests) {
+    if (item[n] && typeof item[n] === 'object') {
+      for (const k of visitKeys) {
+        const val = item[n][k];
+        const out = tryValue(val);
+        if (out) return out;
+      }
+    }
+  }
+
+  // 3) fallback to schedule/appointment info (preserve previous behavior)
+  const scheduleDate = item.scheduleDate || item.date || item.schedule_date || item.scheduleDay || '';
+  const timePeriod = item.timePeriodName || item.timePeriod || item.period || item.slot || '';
+
+  if (scheduleDate && timePeriod) {
+    const dateOnly = (String(scheduleDate).indexOf('T') === -1 && String(scheduleDate).indexOf(':') === -1) ? String(scheduleDate) : tryParseISO(scheduleDate) || String(scheduleDate);
+    const mapped = mapTimePeriod(timePeriod);
+    return `${dateOnly} ${mapped}`;
+  }
+
+  const start = item.startTime || item.beginTime || item.scheduleStartTime || item.start || item.start_time;
+  const end = item.endTime || item.finishTime || item.scheduleEndTime || item.end || item.end_time;
+  if (start || end) {
+    const s = tryParseISO(start) || (start && String(start)) || '';
+    const e = tryParseISO(end) || (end && String(end)) || '';
+    if (s && e) return `${s} - ${e}`;
+    if (s) return s;
+    if (e) return e;
+  }
+
+  const registerTime = item.visitTime || item.attendTime || item.registerTime || item.registeredAt || item.createTime || item.registeredDatetime || item.registered_time;
+  const parsedRegister = tryParseISO(registerTime);
+  if (parsedRegister) return parsedRegister;
+
+  if (scheduleDate) {
+    const p = tryParseISO(scheduleDate);
+    if (p) return p;
+    return String(scheduleDate);
+  }
+
+  if (item.schedule && typeof item.schedule === 'object') {
+    const s2 = formatVisitDateTime(item.schedule);
+    if (s2 && s2 !== '—') return s2;
+  }
+
+  if (timePeriod) return mapTimePeriod(timePeriod);
+
+  return '—';
+}
+
+// keep old name as compatibility shim
+function formatScheduleDateTime(item) { return formatVisitDateTime(item); }
+
 // Allow cancel for these statuses (assumed business rules)
 function canCancel(st){
   if (st === undefined || st === null) return false
