@@ -4,8 +4,8 @@
 
 import { DEFAULT_SERVER_MODE } from './mode.js'
 
-export const SERVER_PROD = 'https://your-real-server.example.com' // TODO: 替换为真实生产地址
-export const SERVER_MOCK = 'http://localhost:8082'
+export const SERVER_PROD = 'http://10.83.39.15:8082' // 本地后端服务器
+export const SERVER_MOCK = 'http://10.83.39.15:8082'
 
 export function getServerMode() {
   try {

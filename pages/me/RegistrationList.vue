@@ -1,6 +1,6 @@
 ﻿﻿<template>
   <view class="page-container">
-    
+
     <view class="filters">
       <scroll-view scroll-x="true" class="status-tabs">
         <view v-for="s in statusOptions" :key="s" class="tab" :class="{ active: filters.status === s }" @click="changeStatus(s)">
@@ -18,7 +18,7 @@
       </view>
     </view>
 
-    
+
     <scroll-view scroll-y="true" class="list" @scrolltolower="loadMore" refresher-enabled="true" :refresher-triggered="refresher" @refresherrefresh="onRefresh">
       <view v-if="loading && page === 1" class="loading-initial">加载中...</view>
       <view v-else-if="error && page === 1" class="error-box">
@@ -39,7 +39,7 @@
         <view class="line"><text class="label">医生:</text><text class="value">{{ item.doctorName || item.doctorId || '—' }}</text></view>
         <view class="line"><text class="label">挂号时间:</text><text class="value">{{ formatTime(item.registerTime) }}</text></view>
         <view class="line"><text class="label">记录键:</text><text class="value">{{ item.scheduleRecordId }}</text></view>
-        
+
         <view class="actions">
           <button size="mini" class="detail-btn" @click="viewDetail(item)">详情</button>
           <button
@@ -60,6 +60,50 @@
       <view v-if="loading && page > 1" class="loading-more">加载更多...</view>
       <view v-if="!hasMore && registrations.length > 0" class="end-text">没有更多了</view>
     </scroll-view>
+
+    <!-- 详情弹窗 -->
+    <view v-if="showDetailModal" class="modal-overlay" @click.self="closeDetailModal">
+      <view class="modal-content">
+        <view class="modal-header">
+          <text class="modal-title">挂号详情</text>
+          <view class="modal-close" @click="closeDetailModal">
+            <uni-icons type="close" size="20" color="#999"></uni-icons>
+          </view>
+        </view>
+        <view class="modal-body" v-if="detailItem">
+          <view class="detail-section">
+            <view class="detail-row">
+              <text class="detail-label">就诊日期</text>
+              <text class="detail-value">{{ detailItem.scheduleDate }} {{ detailItem.timePeriodName }}</text>
+            </view>
+            <view class="detail-row">
+              <text class="detail-label">科室</text>
+              <text class="detail-value">{{ detailItem.departmentName || detailItem.departmentId || '—' }}</text>
+            </view>
+            <view class="detail-row">
+              <text class="detail-label">医生</text>
+              <text class="detail-value">{{ detailItem.doctorName || detailItem.doctorId || '—' }}</text>
+            </view>
+            <view class="detail-row">
+              <text class="detail-label">挂号时间</text>
+              <text class="detail-value">{{ formatTime(detailItem.registerTime) }}</text>
+            </view>
+            <view class="detail-row">
+              <text class="detail-label">状态</text>
+              <text class="detail-value status-text" :class="statusClass(detailItem.status === '预约中' ? '已预约' : detailItem.status)">
+                {{ detailItem.status === '预约中' ? '已预约' : detailItem.status }}
+              </text>
+            </view>
+          </view>
+        </view>
+        <view class="modal-footer">
+          <button class="nav-btn" @click="goNavigation">
+            <uni-icons type="navigate" size="18" color="#fff"></uni-icons>
+            <text>就诊导航</text>
+          </button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -105,8 +149,31 @@ function canReview(item){ return item?.status === '已就诊' && !!item?.schedul
 function shouldShowReview(item){ return canReview(item) }
 function shouldShowCancel(item){ return canCancel(item.status) && !shouldShowReview(item) }
 
+// 详情弹窗相关
+const showDetailModal = ref(false)
+const detailItem = ref(null)
+
 function viewDetail(item){
-  uni.showToast({ title: '详情: '+ (item.scheduleRecordId || ''), icon: 'none' })
+  detailItem.value = item
+  showDetailModal.value = true
+}
+
+function closeDetailModal() {
+  showDetailModal.value = false
+  detailItem.value = null
+}
+
+function goNavigation() {
+  if (!detailItem.value) return
+  const registrationId = detailItem.value.registrationId || detailItem.value.scheduleRecordId
+  if (!registrationId) {
+    uni.showToast({ title: '无法获取挂号ID', icon: 'none' })
+    return
+  }
+  closeDetailModal()
+  uni.navigateTo({
+    url: `/pages/navigation/Navigation?registrationId=${registrationId}`
+  })
 }
 async function cancel(item){
   if (item.status === '候补中') {
@@ -310,4 +377,91 @@ load()
 .detail-btn { margin-right:16rpx; background:#4e9deb; color:#fff; }
 .review-btn { margin-right:16rpx; background:#ffb300; color:#fff; }
 .cancel-btn { background:#e53935; color:#fff; }
+
+/* 详情弹窗样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 40rpx;
+}
+.modal-content {
+  width: 100%;
+  max-width: 600rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 30rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+.modal-close {
+  padding: 10rpx;
+}
+.modal-body {
+  padding: 30rpx;
+}
+.detail-section {
+  background: #f8f9fa;
+  border-radius: 16rpx;
+  padding: 20rpx;
+}
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+.detail-row:last-child {
+  border-bottom: none;
+}
+.detail-label {
+  font-size: 26rpx;
+  color: #888;
+}
+.detail-value {
+  font-size: 26rpx;
+  color: #333;
+  font-weight: 500;
+}
+.status-text {
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+}
+.modal-footer {
+  padding: 20rpx 30rpx 30rpx;
+}
+.nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 88rpx;
+  background: linear-gradient(135deg, #4e9deb 0%, #6bb3f8 100%);
+  border-radius: 44rpx;
+  color: #fff;
+  font-size: 30rpx;
+  border: none;
+}
+.nav-btn text {
+  margin-left: 10rpx;
+}
 </style>

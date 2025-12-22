@@ -70,6 +70,26 @@
 			<view class="tip-item">• 请在30分钟内完成支付，超时订单将自动取消</view>
 			<view class="tip-item">• 支付成功后不可退款，请确认信息无误</view>
 		</view>
+
+		<!-- 支付成功弹窗 -->
+		<view v-if="showSuccessModal" class="success-modal-overlay">
+			<view class="success-modal">
+				<view class="success-icon">
+					<uni-icons type="checkmarkempty" size="48" color="#52c41a"></uni-icons>
+				</view>
+				<text class="success-title">支付成功</text>
+				<text class="success-desc">您已成功完成支付，可前往就诊导航查看路线</text>
+				<view class="success-actions">
+					<button class="action-nav" @click="goNavigation">
+						<uni-icons type="navigate" size="18" color="#fff"></uni-icons>
+						<text>就诊导航</text>
+					</button>
+					<button class="action-list" @click="goRegistrationList">
+						<text>查看我的挂号</text>
+					</button>
+				</view>
+			</view>
+		</view>
 	</view>
 </template>
 
@@ -98,6 +118,8 @@
 	const orderStatus = ref('')
 	const medicalBalance = ref(null) // 医保余额
 	const patientId = ref('')
+	const registrationId = ref('') // 挂号ID，用于导航
+	const showSuccessModal = ref(false) // 支付成功弹窗
 
 	const payMethods = [
 		{
@@ -144,6 +166,7 @@
 			reimbursePercent.value = p.reimbursePercent || 0
 			orderStatus.value = p.payStatus || ''
 			patientId.value = p.patientId || ''
+			registrationId.value = p.registrationId || p.scheduleRecordId || ''
 		} catch (e) {
 			console.error(e)
 			uni.showToast({
@@ -264,13 +287,8 @@
 					medicalBalance.value -= fee.value
 				}
 
-				// api.js 已经显示了"支付成功"提示，这里不再重复
-				// 延迟跳转，让用户看到状态更新
-				setTimeout(() => {
-					uni.redirectTo({
-						url: '/pages/me/RegistrationList'
-					})
-				}, 1500)
+				// 显示支付成功弹窗
+				showSuccessModal.value = true
 			} catch (e) {
 				// 错误已在 api.js 中处理提示
 				console.error('支付失败:', e)
@@ -284,6 +302,24 @@
 			})
 			isPaying.value = false
 		}
+	}
+
+	function goNavigation() {
+		if (!registrationId.value) {
+			uni.showToast({ title: '无法获取挂号信息', icon: 'none' })
+			return
+		}
+		showSuccessModal.value = false
+		uni.navigateTo({
+			url: `/pages/navigation/Navigation?registrationId=${registrationId.value}`
+		})
+	}
+
+	function goRegistrationList() {
+		showSuccessModal.value = false
+		uni.redirectTo({
+			url: '/pages/me/RegistrationList'
+		})
 	}
 </script>
 
@@ -528,6 +564,94 @@
 
 	.tip-item:last-child {
 		margin-bottom: 0;
+	}
+
+	/* 支付成功弹窗样式 */
+	.success-modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1001;
+		padding: 40rpx;
+	}
+
+	.success-modal {
+		width: 100%;
+		max-width: 580rpx;
+		background: #fff;
+		border-radius: 24rpx;
+		padding: 50rpx 40rpx;
+		text-align: center;
+	}
+
+	.success-icon {
+		width: 120rpx;
+		height: 120rpx;
+		margin: 0 auto 24rpx;
+		background: linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%);
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.success-title {
+		display: block;
+		font-size: 36rpx;
+		font-weight: 700;
+		color: #333;
+		margin-bottom: 16rpx;
+	}
+
+	.success-desc {
+		display: block;
+		font-size: 26rpx;
+		color: #888;
+		margin-bottom: 40rpx;
+		line-height: 1.5;
+	}
+
+	.success-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 20rpx;
+	}
+
+	.action-nav {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 88rpx;
+		background: linear-gradient(135deg, #4e9deb 0%, #1a73e8 100%);
+		border-radius: 44rpx;
+		color: #fff;
+		font-size: 30rpx;
+		border: none;
+		font-weight: 500;
+	}
+
+	.action-nav text {
+		margin-left: 10rpx;
+	}
+
+	.action-list {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 88rpx;
+		background: #fff;
+		border: 2rpx solid #ddd;
+		border-radius: 44rpx;
+		color: #666;
+		font-size: 28rpx;
 	}
 
 </style>
