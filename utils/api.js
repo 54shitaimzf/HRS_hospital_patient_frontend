@@ -263,6 +263,23 @@ export async function fetchWaitingQueue({ scheduleRecordId }) {
   }
 }
 
+// 新增：获取候补规则
+export async function fetchWaitingRules() {
+  try {
+    const res = await api.get('/api/registrations/waiting/rules');
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data ?? [];
+      const list = Array.isArray(payload) ? payload : (payload.items || []);
+      return { list: Array.isArray(list) ? list : [], raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '获取候补规则失败';
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取候补规则失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export async function confirmWaitingRegistration({ waitingId }) {
   if (!waitingId) return Promise.reject({ message: '缺少 waitingId' });
   try {

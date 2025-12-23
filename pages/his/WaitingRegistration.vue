@@ -40,6 +40,34 @@
 		<button class="submit-btn" :loading="submitting" :disabled="loading || myPosition > 0" @click="submitWaiting">
 			{{ myPosition > 0 ? '已在队列中' : '确认候补' }}
 		</button>
+
+		<!-- Help button in corner -->
+		<button class="help-btn" @click="openRules">?</button>
+
+		<!-- Rules modal -->
+		<view v-if="rulesModalVisible" class="rules-overlay">
+			<view class="rules-modal">
+				<view class="modal-header">
+					<text class="modal-title">候补规则</text>
+					<button class="modal-close" @click="closeRules">关闭</button>
+				</view>
+				<view class="modal-body">
+					<view v-if="rulesLoading" class="modal-loading">加载中...</view>
+					<view v-else-if="rulesError" class="modal-error">
+						<text>{{ rulesError }}</text>
+						<button size="mini" @click="fetchAndShowRules">重试</button>
+					</view>
+					<view v-else class="rules-list">
+						<view v-if="!rules.length" class="no-rules">未找到规则信息</view>
+						<view v-for="(r, idx) in rules" :key="r.ruleName || idx" class="rule-item">
+							<text class="rule-name">{{ r.description || r.ruleName }}</text>
+							<text class="rule-value">{{ r.ruleValue }}</text>
+						</view>
+					</view>
+				</view>
+			</view>
+		</view>
+
 	</view>
 </template>
 
@@ -56,7 +84,8 @@
 	import {
 		fetchWaitingQueue,
 		createWaitingRegistration,
-		fetchRegistrationDoctors
+		fetchRegistrationDoctors,
+		fetchWaitingRules
 	} from '../../utils/api.js';
 
 	const userStore = useUserStore();
@@ -78,6 +107,12 @@
 	const waitingCount = ref(0);
 	const myPosition = ref(0); // 0 表示未在队列
 
+	// 候补规则相关状态
+	const rules = ref([]);
+	const rulesLoading = ref(false);
+	const rulesError = ref('');
+	const rulesModalVisible = ref(false);
+
 	onLoad(async (options) => {
 		scheduleRecordId.value = options.scheduleRecordId || '';
 		departmentId.value = options.deptId || options.departmentId || '';
@@ -91,6 +126,11 @@
 		uni.setNavigationBarTitle({
 			title: '候补挂号'
 		});
+
+		// 预取候补规则，出错不影响页面主流程
+		fetchWaitingRules().then(res => {
+			rules.value = res.list || [];
+		}).catch(() => {});
 
 		// 如果 timePeriodName 未传入或为 undefined，则回退去获取排班详情
 		try {
@@ -183,6 +223,30 @@
 			submitting.value = false;
 		}
 	}
+
+	// 打开规则弹窗：如果尚未加载，先请求
+	async function openRules() {
+		rulesModalVisible.value = true;
+		if (rules.value && rules.value.length) return; // 已有数据
+		await fetchAndShowRules();
+	}
+
+	function closeRules() {
+		rulesModalVisible.value = false;
+	}
+
+	async function fetchAndShowRules() {
+		rulesLoading.value = true;
+		rulesError.value = '';
+		try {
+			const res = await fetchWaitingRules();
+			rules.value = res.list || [];
+		} catch (err) {
+			rulesError.value = err?.message || '获取候补规则失败';
+		} finally {
+			rulesLoading.value = false;
+		}
+	}
 </script>
 
 <style scoped>
@@ -262,5 +326,103 @@
 
 	.submit-btn[disabled] {
 		background-color: #ccc;
+	}
+
+	/* Help button */
+	.help-btn {
+		position: fixed;
+		right: 40rpx; /* 向内偏移一点（从30rpx调整为40rpx） */
+		top: 40rpx; /* 向内偏移一点 */
+		width: 52rpx; /* 外圈小一点（从64rpx缩小到52rpx） */
+		height: 52rpx;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 26rpx;
+		background-color: transparent; /* 中间透明 */
+		border: 2rpx solid #1890ff; /* 边框稍细 */
+		color: #1890ff; /* 蓝色问号 */
+		font-size: 32rpx; /* 问号略小以适配新尺寸 */
+		text-align: center;
+		z-index: 9999;
+		box-shadow: 0 4rpx 10rpx rgba(0,0,0,0.05);
+	}
+
+	/* Modal overlay */
+	.rules-overlay {
+		position: fixed;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		background: rgba(0,0,0,0.4);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 10000;
+	}
+
+	.rules-modal {
+		position: relative; /* 使关闭按钮可绝对定位在右上角 */
+		width: 680rpx;
+		max-height: 900rpx;
+		background: #fff;
+		border-radius: 24rpx;
+		overflow: hidden;
+	}
+
+	.modal-header {
+		display: flex;
+		justify-content: center; /* 标题居中，关闭按钮在绝对位置 */
+		align-items: center;
+		padding: 24rpx 28rpx;
+		border-bottom: 1rpx solid #eee;
+	}
+
+	.modal-title {
+		font-size: 32rpx;
+		font-weight: bold;
+	}
+
+	.modal-close {
+		position: absolute;
+		top: 14rpx;
+		right: 14rpx;
+		background: transparent;
+		border: none;
+		color: #e53935; /* 红色标出 */
+		font-size: 24rpx; /* 略微减小字号 */
+		padding: 4rpx 8rpx; /* 略微减小高度 */
+	}
+
+	.modal-body {
+		padding: 20rpx 24rpx;
+		max-height: 740rpx;
+		overflow-y: auto;
+	}
+
+	.rule-item {
+		display: flex;
+		justify-content: space-between;
+		padding: 18rpx 0;
+		border-bottom: 1rpx dashed #f0f0f0;
+	}
+
+	.rule-name {
+		color: #333;
+		font-size: 28rpx;
+	}
+
+	.rule-value {
+		color: #1890ff;
+		font-size: 28rpx;
+	}
+
+	.no-rules,
+	.modal-loading,
+	.modal-error {
+		text-align: center;
+		color: #666;
+		padding: 40rpx 0;
 	}
 </style>
