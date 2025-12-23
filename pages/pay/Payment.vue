@@ -12,30 +12,74 @@
 		<view class="info-card">
 			<view class="card-title">订单信息</view>
 			<view class="payment-info">
-				<text class="label">医生：</text><text class="value">{{ doctorName }}</text>
+				<text class="label">医生：</text><text class="value">{{ doctorName }} <text v-if="doctorTitle">（{{ doctorTitle }}）</text></text>
 			</view>
 			<view class="payment-info">
 				<text class="label">科室：</text><text class="value">{{ department }}</text>
 			</view>
 			<view class="payment-info">
-				<text class="label">时间：</text><text class="value">{{ formatTime(time) }}</text>
+				<text class="label">就诊时间：</text><text class="value">{{ scheduleDate ? `${scheduleDate} ${timePeriod}` : formatTime(time) }}</text>
 			</view>
 		</view>
 
 		<!-- 费用信息 -->
 		<view class="info-card">
 			<view class="card-title">费用详情</view>
-			<view class="payment-info" v-if="oriFee > fee">
+
+			<!-- 新增：逐项费用列表（与 feepreview 一致的展示形式，但不折叠） -->
+			<view v-if="feeItems && feeItems.length" class="fee-list">
+				<view v-for="(item, idx) in feeItems" :key="item.code || idx" class="payment-info">
+					<text class="label">{{ item.name || item.title || '项目' }}</text>
+					<text class="value">¥{{ formatAmount(item.amount) }}</text>
+				</view>
+			</view>
+			<view v-else class="payment-info">
+				<text class="label">费用明细：</text>
+				<text class="value">-</text>
+			</view>
+
+			<!-- 明确显示挂号费（后端字段 registrationFee） -->
+			<view class="payment-info">
+				<text class="label">挂号费：</text>
+				<text class="value">¥{{ formatAmount(displayOriFee) }}</text>
+			</view>
+
+			<!-- 原价（若有优惠或报销则展示） -->
+			<view class="payment-info" v-if="displayOriFee > displayActualPay">
 				<text class="label">原价：</text>
-				<text class="value" style="text-decoration: line-through; color: #999;">¥{{ oriFee.toFixed(2) }}</text>
+				<text class="value" style="text-decoration: line-through; color: #999;">¥{{ formatAmount(displayOriFee) }}</text>
 			</view>
-			<view class="payment-info" v-if="reimburseType">
+
+			<!-- 报销类型与比例 -->
+			<view class="payment-info" v-if="displayReimburseType">
 				<text class="label">报销：</text>
-				<text class="value">{{ reimburseType }} (报销{{ reimbursePercent }}%)</text>
+				<text class="value">{{ displayReimburseType }} <text v-if="displayReimbursePercent">(报销{{ displayReimbursePercentFormatted }})</text></text>
 			</view>
+
+			<!-- 报销金额 -->
+			<view class="payment-info" v-if="displayReimbursedAmount !== null && displayReimbursedAmount > 0">
+				<text class="label">医保报销：</text>
+				<text class="value">¥{{ formatAmount(displayReimbursedAmount) }}</text>
+			</view>
+
+			<!-- 实付金额 -->
 			<view class="payment-info amount-row">
 				<text class="label">实付金额：</text>
-				<text class="amount-value">¥{{ fee.toFixed(2) }}</text>
+				<text class="amount-value">¥{{ formatAmount(displayActualPay) }}</text>
+			</view>
+
+			<!-- 医保余额与能否支付 -->
+			<view class="payment-info" v-if="medicalBalance !== null">
+				<text class="label">医保余额：</text>
+				<view style="display:flex; align-items:center; gap:12rpx;">
+					<text class="value" :style="{ color: medicalBalance < displayActualPay ? '#ff4d4f' : '#52c41a' }">¥{{ formatAmount(medicalBalance) }}</text>
+					<view class="afford-badge" :class="{ ok: canAfford, no: !canAfford }">{{ canAfford ? '余额足够' : '余额不足' }}</view>
+				</view>
+			</view>
+
+			<!-- 额外说明小字 -->
+			<view class="note" v-if="displayReimburseType">
+				<text>注：报销金额根据政策计算，最终以医保结算为准。</text>
 			</view>
 		</view>
 
@@ -54,7 +98,7 @@
 			<!-- 医保余额提示 -->
 			<view class="balance-tip" v-if="selectedMethod === 'medical' && medicalBalance !== null">
 				<text class="tip-label">医保余额：</text>
-				<text class="tip-value" :style="{ color: medicalBalance < fee ? '#ff4d4f' : '#52c41a' }">
+				<text class="tip-value" :style="{ color: medicalBalance < displayActualPay ? '#ff4d4f' : '#52c41a' }">
 					¥{{ medicalBalance.toFixed(2) }}
 				</text>
 			</view>
@@ -62,7 +106,7 @@
 
 		<!-- 支付按钮 -->
 		<button class="pay-btn" @click="pay" :disabled="isPaying || !isPendingPayment">
-			{{ isPaying ? '支付中...' : (isPendingPayment ? `确认支付 ¥${fee.toFixed(2)}` : orderStatus) }}
+			{{ isPaying ? '支付中...' : (isPendingPayment ? `确认支付 ¥${formatAmount(displayActualPay)}` : orderStatus) }}
 		</button>
 
 		<!-- 温馨提示 -->
@@ -81,23 +125,31 @@
 	import {
 		onLoad
 	} from '@dcloudio/uni-app'
-	import { fetchPaymentDetail, payOrder } from '../../utils/api.js'
-	import { getUser } from '../../store/userUtil.js'
+	import { fetchPaymentDetail, payOrder, fetchRegistrationFeePreview } from '../../utils/api'
+	import { getUser } from '../../store/userUtil'
 
 	const doctorName = ref('')
+	const doctorTitle = ref('')
+	const doctorId = ref('')
 	const department = ref('')
 	const time = ref('')
 	const fee = ref(0)
 	const oriFee = ref(0)
 	const reimburseType = ref('')
 	const reimbursePercent = ref(0)
+	const reimbursedAmount = ref(null)
+	const medicalBalance = ref(null)
+	const canAfford = ref(true)
+	const scheduleDate = ref('')
+	const timePeriod = ref('')
+	const feeItems = ref([])
 
 	const isPaying = ref(false)
 	const selectedMethod = ref('medical') // 默认医保支付
 	const paymentId = ref('')
 	const orderStatus = ref('')
-	const medicalBalance = ref(null) // 医保余额
 	const patientId = ref('')
+	const scheduleRecordId = ref('')
 
 	const payMethods = [
 		{
@@ -115,10 +167,16 @@
 	onLoad(async (options) => {
 		// 优先使用 paymentId
 		paymentId.value = options.paymentId || options.orderId || options.id || ''
+		scheduleRecordId.value = options.scheduleRecordId || options.scheduleId || ''
+		patientId.value = options.patientId || ''
 
 		// 如果有 paymentId，从后端加载详情
 		if (paymentId.value) {
 			await loadPaymentDetail()
+			await loadMedicalBalance()
+		} else if (patientId.value && scheduleRecordId.value) {
+			// 新增场景：从挂号选择直接跳转到支付页，先预览费用
+			await loadFeePreview(patientId.value, scheduleRecordId.value)
 			await loadMedicalBalance()
 		} else {
 			// 降级：使用传递过来的参数（如果有）
@@ -126,6 +184,7 @@
 			department.value = options.department || ''
 			time.value = options.time || ''
 			fee.value = Number(options.fee) || 0
+			oriFee.value = Number(options.oriFee) || 0
 			orderStatus.value = options.status || options.orderStatus || ''
 		}
 	})
@@ -136,20 +195,85 @@
 			const res = await fetchPaymentDetail(paymentId.value)
 			const p = res.payment
 			doctorName.value = p.doctorName || ''
+			doctorTitle.value = p.doctorTitle || ''
+			doctorId.value = p.doctorId || ''
 			department.value = p.departmentName || ''
 			time.value = p.payTime || ''
-			fee.value = p.askPayAmount || 0
-			oriFee.value = p.oriAmount || 0
+			fee.value = Number(p.askPayAmount) || 0
+			oriFee.value = Number(p.oriAmount) || 0
 			reimburseType.value = p.reimburseType || ''
 			reimbursePercent.value = p.reimbursePercent || 0
 			orderStatus.value = p.payStatus || ''
 			patientId.value = p.patientId || ''
+			scheduleRecordId.value = p.scheduleRecordId || scheduleRecordId.value || ''
+
+			// 计算报销金额（若后端未返回）
+			if (reimbursePercent.value && oriFee.value) {
+				reimbursedAmount.value = +(oriFee.value * (Number(reimbursePercent.value) / 100)).toFixed(2)
+			} else if (p.reimbursedAmount !== undefined) {
+				reimbursedAmount.value = Number(p.reimbursedAmount)
+			} else {
+				reimbursedAmount.value = oriFee.value - fee.value
+			}
+
+			// 医保余额：优先从用户信息取
+			try {
+				const userInfo = getUser()
+				if (userInfo && userInfo.medicalBalance !== undefined) {
+					medicalBalance.value = Number(userInfo.medicalBalance) || 0
+				}
+			} catch (e) {
+				console.error('获取医保余额失败:', e)
+			}
+
+			canAfford.value = medicalBalance.value === null ? true : (medicalBalance.value >= fee.value)
+
+			// 如果后端返回了详细费用项（feeItems 或 items），填充到本地
+			if (p.feeItems && Array.isArray(p.feeItems)) {
+				feeItems.value = p.feeItems.map(i => ({ name: i.name || i.title || i.itemName, amount: Number(i.amount) || Number(i.price) || 0, code: i.code }))
+			}
 		} catch (e) {
 			console.error(e)
 			uni.showToast({
 				title: '加载订单失败',
 				icon: 'none'
 			})
+		} finally {
+			uni.hideLoading()
+		}
+	}
+
+	async function loadFeePreview(pid, schedId) {
+		try {
+			uni.showLoading({ title: '正在预览费用...' })
+			const res = await fetchRegistrationFeePreview({ patientId: pid, scheduleRecordId: schedId })
+			// 兼容多层包装
+			const payload = res.feePreview ?? res.raw?.data?.data ?? res.raw?.data ?? res
+
+			// 填充展示字段
+			doctorName.value = payload.doctorName || doctorName.value
+			doctorTitle.value = payload.doctorTitle || doctorTitle.value
+			doctorId.value = payload.doctorId || doctorId.value
+			department.value = payload.departmentName || department.value
+			scheduleDate.value = payload.scheduleDate || scheduleDate.value
+			timePeriod.value = payload.timePeriod || timePeriod.value
+			oriFee.value = Number(payload.registrationFee) || oriFee.value || 0
+			fee.value = Number(payload.actualPayAmount) || fee.value || 0
+			reimburseType.value = payload.reimburseType || ''
+			reimbursePercent.value = Number(payload.reimbursePercent) || 0
+			reimbursedAmount.value = payload.reimbursedAmount !== undefined ? Number(payload.reimbursedAmount) : +(oriFee.value - fee.value).toFixed(2)
+			medicalBalance.value = payload.medicalInsuranceBalance !== undefined ? Number(payload.medicalInsuranceBalance) : medicalBalance.value
+			canAfford.value = typeof payload.canAfford === 'boolean' ? payload.canAfford : (medicalBalance.value === null ? true : (medicalBalance.value >= fee.value))
+			scheduleRecordId.value = payload.scheduleRecordId || scheduleRecordId.value
+
+			// 填充费用项（后端字段可能为 items / feeItems / feeDetail）
+			const list = payload.items || payload.feeItems || payload.feeDetail || payload.feeList || []
+			if (Array.isArray(list) && list.length) {
+				feeItems.value = list.map(i => ({ name: i.name || i.title || i.itemName || i.feeName, amount: Number(i.amount) || Number(i.price) || Number(i.feeAmount) || 0, code: i.code || i.itemCode }))
+			}
+		} catch (e) {
+			console.error('费用预览失败:', e)
+			uni.showToast({ title: e?.message || '费用预览失败', icon: 'none' })
 		} finally {
 			uni.hideLoading()
 		}
@@ -211,10 +335,10 @@
 
 		// 检查医保余额
 		if (selectedMethod.value === 'medical' && medicalBalance.value !== null) {
-			if (medicalBalance.value < fee.value) {
+			if (medicalBalance.value < displayActualPay) {
 				uni.showModal({
 					title: '余额不足',
-					content: `您的医保余额为 ¥${medicalBalance.value.toFixed(2)}，不足以支付 ¥${fee.value.toFixed(2)}`,
+					content: `您的医保余额为 ¥${(medicalBalance.value ?? 0).toFixed(2)}，不足以支付 ¥${(displayActualPay ?? 0).toFixed(2)}`,
 					showCancel: false
 				})
 				return
@@ -223,7 +347,7 @@
 
 		uni.showModal({
 			title: '确认支付',
-			content: `确认使用${selectedMethod.value === 'medical' ? '医保' : '微信'}支付 ¥${fee.value.toFixed(2)} 吗？`,
+			content: `确认使用${selectedMethod.value === 'medical' ? '医保' : '微信'}支付 ¥${(displayActualPay ?? 0).toFixed(2)} 吗？`,
 			success: async (res) => {
 				if (res.confirm) {
 					await performPayment()
@@ -285,6 +409,26 @@
 			isPaying.value = false
 		}
 	}
+
+	// 计算展示字段的 getter
+	const displayOriFee = computed(() => Number(oriFee.value || 0))
+	const displayActualPay = computed(() => Number(fee.value || 0))
+	const displayReimburseType = computed(() => reimburseType.value || '')
+	const displayReimbursePercent = computed(() => reimbursePercent.value || 0)
+	const displayReimbursedAmount = computed(() => reimbursedAmount.value !== null ? Number(reimbursedAmount.value) : null)
+	const displayReimbursePercentFormatted = computed(() => {
+		const v = Number(displayReimbursePercent.value || 0)
+		if (isNaN(v) || v === 0) return ''
+		// 保持整数时不显示小数，其他保留最多2位
+		return `${(Number.isInteger(v) ? v : v.toFixed(2))}%`
+	})
+
+	// 金额格式化工具
+	function formatAmount(a) {
+		const n = Number(a || 0)
+		return isNaN(n) ? '0.00' : n.toFixed(2)
+	}
+
 </script>
 
 <style scoped>
@@ -389,6 +533,19 @@
 		font-weight: bold;
 		color: #ff4d4f;
 	}
+
+	.afford-badge {
+		padding: 6rpx 14rpx;
+		border-radius: 12rpx;
+		font-size: 24rpx;
+		color: #fff;
+	}
+
+	.afford-badge.ok { background: #52c41a; }
+	.afford-badge.no { background: #ff4d4f; }
+
+	/* 费用列表样式 */
+	.fee-list { margin-bottom: 6rpx; }
 
 	/* 支付方式 */
 	.payment-method {
@@ -528,6 +685,12 @@
 
 	.tip-item:last-child {
 		margin-bottom: 0;
+	}
+
+	.note {
+		margin-top: 8rpx;
+		font-size: 22rpx;
+		color: #999;
 	}
 
 </style>

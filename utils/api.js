@@ -571,6 +571,28 @@ export async function fetchRegistrationByKey({ patientId, scheduleRecordId }) {
   }
 }
 
+// 新增：挂号费用预览
+export async function fetchRegistrationFeePreview({ patientId, scheduleRecordId }) {
+  // 参数校验
+  if (!patientId) return Promise.reject({ message: '缺少 patientId' });
+  if (!scheduleRecordId) return Promise.reject({ message: '缺少 scheduleRecordId' });
+
+  try {
+    const res = await api.get('/api/registrations/fee-preview', { patientId, scheduleRecordId });
+    if (res.statusCode === 200) {
+      const payload = res.data?.data ?? res.data;
+      // 返回统一结构：{ feePreview, raw }
+      return { feePreview: payload, raw: res };
+    }
+    const msg = res.data?.message || res.data?.msg || '获取费用预览失败';
+    uni.showToast({ title: msg, icon: 'none' });
+    return Promise.reject({ message: msg, raw: res });
+  } catch (err) {
+    if (!err?.silent) uni.showToast({ title: err?.message || '获取费用预览失败', icon: 'none' });
+    return Promise.reject(err);
+  }
+}
+
 export async function submitExtraApply({ patientId, departmentId, doctorId, appointmentDate, reason }) {
   if (!patientId || !departmentId || !doctorId || !appointmentDate || !reason) {
     return Promise.reject({ message: '加号申请缺少必填参数' });
@@ -953,6 +975,7 @@ const _keep = [
   confirmPasswordReset,
   createRegistration,
   fetchRegistrationByKey,
+  fetchRegistrationFeePreview,
   submitExtraApply,
   fetchExtraApplyDetail,
   fetchExtraApplyList,
