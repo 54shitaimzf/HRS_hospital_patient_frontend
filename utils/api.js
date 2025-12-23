@@ -58,9 +58,21 @@ export function request({ url, method = 'GET', data = {}, header = {} }) {
     const reqHeader = { ...header };
     if (token) reqHeader['Authorization'] = `Bearer ${token}`;
     const BASE_URL = resolveBaseUrl();
+    const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
+
+    // 请求拦截器 - 输出请求信息
+    console.log('\n%c========== 请求拦截 ==========', 'color: #4CAF50; font-weight: bold;');
+    console.log('%c接口路径:', 'color: #2196F3; font-weight: bold;', url);
+    console.log('%c完整地址:', 'color: #2196F3;', fullUrl);
+    console.log('%c请求方式:', 'color: #FF9800; font-weight: bold;', method);
+    console.log('%c请求头:', 'color: #9C27B0;', reqHeader);
+    console.log('%c请求参数/请求体:', 'color: #E91E63; font-weight: bold;');
+    console.table(data);
+    console.log('%cJSON格式:', 'color: #607D8B;', JSON.stringify(data));
+    console.log('%c==============================', 'color: #4CAF50; font-weight: bold;\n');
 
     uni.request({
-      url: url.startsWith('http') ? url : `${BASE_URL}${url}`,
+      url: fullUrl,
       method,
       data,
       header: reqHeader,
