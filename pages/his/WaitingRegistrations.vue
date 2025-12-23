@@ -144,18 +144,26 @@ async function doCancel(item) {
     uni.showToast({ title: '无效的候补记录', icon: 'none' })
     return
   }
-  const pid = userStore.patientId || uni.getStorageSync('patientId') || null
+  // 尽量使用本地缓存或通过 ensurePatientId 获取 patientId，避免直接依赖可能未更新的 store 字段
+  let pid = userStore.patientId || null
+  try {
+    if (!pid) pid = uni.getStorageSync('patientId') || null
+  } catch (_) { pid = pid }
+
   if (!pid) {
-    // try to ensure
-    const ensured = await userStore.ensurePatientId()
-    if (!ensured) {
-      uni.showToast({ title: '请先登录', icon: 'none' })
-      return
-    }
+    // 确保从服务端获取并更新 store
+    pid = await userStore.ensurePatientId()
   }
+
+  if (!pid) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+
   cancelling[id] = true
   try {
-    await cancelWaitingRegistration({ waitingId: id, patientId: userStore.patientId })
+    // 将本地解析到的 pid 传入 API，避免 race condition
+    await cancelWaitingRegistration({ waitingId: id, patientId: pid })
     // remove from list
     list.value = list.value.filter(i => (i.waitingId || i.id) !== id)
   } catch (e) {
