@@ -55,13 +55,15 @@
 	} from '../../store/user.js';
 	import {
 		fetchWaitingQueue,
-		createWaitingRegistration
+		createWaitingRegistration,
+		fetchRegistrationDoctors
 	} from '../../utils/api.js';
 
 	const userStore = useUserStore();
 
 
 	const scheduleRecordId = ref('');
+	const departmentId = ref('');
 	const departmentName = ref('');
 	const doctorName = ref('');
 	const doctorTitle = ref('');
@@ -76,8 +78,9 @@
 	const waitingCount = ref(0);
 	const myPosition = ref(0); // 0 表示未在队列
 
-	onLoad((options) => {
+	onLoad(async (options) => {
 		scheduleRecordId.value = options.scheduleRecordId || '';
+		departmentId.value = options.deptId || options.departmentId || '';
 		departmentName.value = decodeURIComponent(options.departmentName || '');
 		doctorName.value = decodeURIComponent(options.doctorName || '');
 		doctorTitle.value = decodeURIComponent(options.doctorTitle || '');
@@ -88,8 +91,40 @@
 		uni.setNavigationBarTitle({
 			title: '候补挂号'
 		});
-		fetchWaitingInfo();
+
+		// 如果 timePeriodName 未传入或为 undefined，则回退去获取排班详情
+		try {
+			if (!timePeriodName.value && scheduleRecordId.value) {
+				// 尝试通过部门 + 日期 拉取当天排班并匹配 scheduleRecordId
+				await fetchScheduleDetailFallback();
+			}
+		} finally {
+			fetchWaitingInfo();
+		}
 	});
+
+	async function fetchScheduleDetailFallback() {
+		// 优先使用 scheduleDate & departmentId; 如果没有 departmentId，无法精确限制查询，将尽量查当天全部返回并匹配
+		if (!scheduleDate.value || !scheduleRecordId.value) return;
+		let dept = departmentId.value;
+		// if dept not provided, leave it empty and the API may still accept departmentId as empty string
+		try {
+			const { list = [] } = await fetchRegistrationDoctors({ departmentId: dept || '', date: scheduleDate.value });
+			// list 中应包含 scheduleRecordId、timePeriodName、doctorName、doctorTitle、registrationFee 等
+			const matched = (Array.isArray(list) ? list : []).flatMap(doc => (doc.schedules || []).map(s => ({ ...s, doctorName: doc.doctorName || doc.name, doctorTitle: doc.doctorTitle || doc.title }))).find(s => s.scheduleRecordId === scheduleRecordId.value || s.scheduleId === scheduleRecordId.value);
+			if (matched) {
+				// fill missing fields
+				timePeriodName.value = timePeriodName.value || matched.timePeriodName || matched.periodName || matched.period || '';
+				doctorName.value = doctorName.value || matched.doctorName || '';
+				doctorTitle.value = doctorTitle.value || matched.doctorTitle || '';
+				registrationFee.value = registrationFee.value || matched.registrationFee || matched.fee || 0;
+				if (!departmentName.value && matched.departmentName) departmentName.value = matched.departmentName;
+			}
+		} catch (err) {
+			// 忽略错误，继续让 fetchWaitingInfo 处理错误显示
+			console.warn('fetchScheduleDetailFallback failed', err);
+		}
+	}
 
 	async function fetchWaitingInfo() {
 		loading.value = true;

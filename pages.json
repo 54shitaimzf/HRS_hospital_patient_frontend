@@ -64,45 +64,15 @@
 			}
 		},
 		{
-			"path": "pages/record/RecordList",
+			"path": "pages/his/WaitingRegistrations",
 			"style": {
-				"navigationBarTitleText": "就诊记录"
-			}
-		},
-		{
-			"path": "pages/pre/PrescriptionList",
-			"style": {
-				"navigationBarTitleText": "电子处方"
-			}
-		},
-		{
-			"path": "pages/report/InspectionList",
-			"style": {
-				"navigationBarTitleText": "检查检验"
-			}
-		},
-		{
-			"path": "pages/report/InspectionDetail",
-			"style": {
-				"navigationBarTitleText": "报告详情"
-			}
-		},
-		{
-			"path": "pages/ai/SmartDiagnosis",
-			"style": {
-				"navigationBarTitleText": "智能问诊"
+				"navigationBarTitleText": "候补记录"
 			}
 		},
 		{
 			"path": "pages/ai/ChatBot",
 			"style": {
 				"navigationBarTitleText": "Ai助手"
-			}
-		},
-		{
-			"path": "pages/drug/DrugMailing",
-			"style": {
-				"navigationBarTitleText": "药品邮寄"
 			}
 		},
 		{

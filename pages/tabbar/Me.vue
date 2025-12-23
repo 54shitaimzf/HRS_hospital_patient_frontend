@@ -23,14 +23,14 @@
 			<text class="card-desc">查看加号申请记录</text>
 		</view>
 
+		<view class="card" @click="goToWaitingRegistration">
+			<text class="card-title">候补记录</text>
+			<text class="card-desc">查看病人的候补记录</text>
+		</view>
+
 		<view class="card" @click="goToMyOrders">
 			<text class="card-title">我的订单</text>
 			<text class="card-desc">查看支付订单记录</text>
-		</view>
-
-		<view class="card" @click="goToOrders">
-			<text class="card-title">就诊记录</text>
-			<text class="card-desc">查看就诊记录与详情</text>
 		</view>
 
 		<view class="card" @click="goToSettings">
@@ -85,11 +85,6 @@
 			url: '/pages/me/OrderList'
 		})
 	}
-	const goToOrders = () => {
-		uni.navigateTo({
-			url: '/pages/record/RecordList'
-		})
-	}
 	const goToSettings = () => {
 		uni.navigateTo({
 			url: '/pages/me/SettingList'
@@ -107,6 +102,11 @@
 				}
 			}
 		})
+	}
+
+	const goToWaitingRegistration = () => {
+		// 简单跳转到候补记录列表页
+		uni.navigateTo({ url: '/pages/his/WaitingRegistrations' })
 	}
 </script>
 

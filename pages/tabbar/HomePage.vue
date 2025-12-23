@@ -1,4 +1,4 @@
-﻿﻿<template>
+﻿<template>
 	<scroll-view scroll-y="true" class="container">
 
 		<swiper indicator-dots="true" autoplay="true" interval="3000" class="swiper-container">
@@ -79,32 +79,19 @@
 		// #endif
 	});
 
-	const gridList = [{
+	const gridList = [
+		{
 			icon: '/static/images/home/yygh.png',
 			text: '预约挂号',
 			action: () => uni.navigateTo({
 				url: '/pages/his/Departments'
 			}),
 		},
-	{
-		icon: '/static/images/home/mzjf.png',
-		text: '订单列表',
-		action: () => uni.navigateTo({
-			url: '/pages/me/OrderList'
-		}),
-	},
 		{
-			icon: '/static/images/home/dzcf.png',
-			text: '电子处方',
+			icon: '/static/images/home/mzjf.png',
+			text: '订单列表',
 			action: () => uni.navigateTo({
-				url: '/pages/pre/PrescriptionList'
-			}),
-		},
-		{
-			icon: '/static/images/home/jcjy.png',
-			text: '检查检验',
-			action: () => uni.navigateTo({
-				url: '/pages/report/InspectionList'
+				url: '/pages/me/OrderList'
 			}),
 		},
 		{
@@ -112,13 +99,6 @@
 			text: '智能问诊',
 			action: () => uni.navigateTo({
 				url: '/pages/ai/SmartDiagnosis'
-			}),
-		},
-		{
-			icon: '/static/images/home/ypyj.png',
-			text: '药品邮寄',
-			action: () => uni.navigateTo({
-				url: '/pages/drug/DrugMailing'
 			}),
 		},
 	];
@@ -196,8 +176,11 @@
 	
 	.grid-container {
 		display: flex;
-		flex-wrap: wrap;
+		/* 禁止换行，确保所有项在同一行 */
+		flex-wrap: nowrap;
+		/* 在容器宽度允许时两端对齐并占满空间，若需要居中，可调整为 center 或 space-around */
 		justify-content: space-between;
+		align-items: center;
 		margin-top: 40rpx;
 	}
 
