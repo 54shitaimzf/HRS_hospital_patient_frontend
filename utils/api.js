@@ -77,6 +77,16 @@ export function request({ url, method = 'GET', data = {}, header = {} }) {
       data,
       header: reqHeader,
       success: (res) => {
+        // 响应拦截器 - 输出响应信息
+        console.log('\n%c========== 响应拦截 ==========', 'color: #00BCD4; font-weight: bold;');
+        console.log('%c接口路径:', 'color: #2196F3; font-weight: bold;', url);
+        console.log('%c状态码:', 'color: #FF9800; font-weight: bold;', res.statusCode);
+        console.log('%c响应头:', 'color: #9C27B0;', res.header);
+        console.log('%c响应数据:', 'color: #E91E63; font-weight: bold;');
+        console.log(res.data);
+        console.log('%cJSON格式:', 'color: #607D8B;', JSON.stringify(res.data, null, 2));
+        console.log('%c==============================', 'color: #00BCD4; font-weight: bold;\n');
+
         if (res.statusCode === 401) {
           handleUnauthorized();
           return reject({ code: 401, message: '未授权或登录已过期', res });
@@ -84,6 +94,12 @@ export function request({ url, method = 'GET', data = {}, header = {} }) {
         resolve(res);
       },
       fail: (err) => {
+        // 请求失败拦截器 - 输出错误信息
+        console.log('\n%c========== 请求失败 ==========', 'color: #F44336; font-weight: bold;');
+        console.log('%c接口路径:', 'color: #2196F3; font-weight: bold;', url);
+        console.log('%c错误信息:', 'color: #F44336;', err);
+        console.log('%c==============================', 'color: #F44336; font-weight: bold;\n');
+
         uni.showToast({ title: '网络错误', icon: 'none' });
         reject(err);
       }

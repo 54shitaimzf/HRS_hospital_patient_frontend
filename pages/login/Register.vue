@@ -21,24 +21,6 @@
 				<input v-model="form.identificationId" placeholder="请输入身份证号(18位)" class="input" />
 			</view>
 
-			<!-- 邮箱 + 发送验证码 -->
-			<view class="input-group">
-				<uni-icons type="email" size="22" color="#999"></uni-icons>
-				<input v-model="form.userEmail" placeholder="请输入邮箱" class="input" />
-				<button class="small-btn send-code-btn" :disabled="sendDisabled" @click="sendCode">
-					{{ countdown > 0 ? `重新发送(${countdown}s)` : (sending ? '发送中...' : '发送验证码') }}
-				</button>
-			</view>
-
-			<!-- 验证码输入与校验 -->
-			<view class="input-group">
-				<uni-icons type="locked" size="22" color="#999"></uni-icons>
-				<input v-model="emailCode" placeholder="请输入邮箱验证码" class="input" />
-				<button class="small-btn verify-code-btn" :class="{ verified: emailVerified }" @click="verifyCode">
-					{{ emailVerified ? '已验证' : '验证' }}
-				</button>
-			</view>
-
 			<view class="input-group">
 				<uni-icons type="phone" size="22" color="#999"></uni-icons>
 				<input v-model="form.userPhone" placeholder="请输入手机号" class="input" />
@@ -69,6 +51,44 @@
 				<uni-icons type="locked" size="22" color="#999"></uni-icons>
 				<input v-model="form.confirm" type="password" placeholder="确认密码" class="input" />
 			</view>
+
+			<!-- 邮箱 + 发送验证码 (只有其他信息填完后才可编辑) -->
+			<view class="input-group" :class="{ 'disabled-group': !otherFieldsComplete }">
+				<uni-icons type="email" size="22" color="#999"></uni-icons>
+				<input
+					v-model="form.userEmail"
+					:placeholder="otherFieldsComplete ? '请输入邮箱' : '请先填写以上信息'"
+					class="input"
+					:disabled="!otherFieldsComplete"
+				/>
+				<button
+					class="small-btn send-code-btn"
+					:disabled="!otherFieldsComplete || sendDisabled()"
+					@click="sendCode"
+				>
+					{{ countdown > 0 ? `重新发送(${countdown}s)` : (sending ? '发送中...' : '发送验证码') }}
+				</button>
+			</view>
+
+			<!-- 验证码输入与校验 (验证成功后不可修改) -->
+			<view class="input-group" :class="{ 'disabled-group': !otherFieldsComplete, 'verified-group': emailVerified }">
+				<uni-icons type="locked" size="22" color="#999"></uni-icons>
+				<input
+					v-model="emailCode"
+					:placeholder="emailVerified ? '已验证通过' : '请输入邮箱验证码'"
+					class="input"
+					:disabled="!otherFieldsComplete || emailVerified"
+				/>
+				<button
+					class="small-btn verify-code-btn"
+					:class="{ verified: emailVerified }"
+					:disabled="!otherFieldsComplete || emailVerified"
+					@click="verifyCode"
+				>
+					{{ emailVerified ? '已验证' : '验证' }}
+				</button>
+			</view>
+
 			<button class="register-btn" @click="register">注 册</button>
 			<!-- 新增：返回登录 链接，位于表单底部，居中显示 -->
 			<text class="back-link" @click="goLogin">返回登录</text>
@@ -78,7 +98,7 @@
 
 
 <script setup>
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { registerUser, sendEmailVerification, verifyEmailCode } from '../../utils/api.js'
 
 const form = ref({
@@ -98,6 +118,22 @@ const countdown = ref(0)
 let timerId = null
 const sending = ref(false)
 const emailVerified = ref(false)
+
+// 判断除邮箱外的其他字段是否都已填写
+const otherFieldsComplete = computed(() => {
+	const f = form.value
+	return (
+		f.userAccount?.trim() &&
+		f.userName?.trim() &&
+		f.identificationId?.trim()?.length === 18 &&
+		f.userPhone?.trim() &&
+		f.birthday &&
+		f.userGender &&
+		f.userPassword?.trim() &&
+		f.confirm?.trim() &&
+		f.userPassword === f.confirm
+	)
+})
 
 const sendDisabled = () => {
 	return sending.value || countdown.value > 0 || !form.value.userEmail
@@ -350,6 +386,26 @@ onUnmounted(() => {
 	}
 	.verify-code-btn.verified {
 		background: linear-gradient(90deg, #26c281, #4cd964) !important;
+		cursor: not-allowed;
+	}
+
+	/* 禁用状态的输入组样式 */
+	.disabled-group {
+		opacity: 0.6;
+		background-color: #e9ecef !important;
+	}
+	.disabled-group .input {
+		color: #999;
+		cursor: not-allowed;
+	}
+
+	/* 已验证状态的输入组样式 */
+	.verified-group {
+		background-color: #e8f5e9 !important;
+		border-color: #4caf50 !important;
+	}
+	.verified-group .input {
+		color: #2e7d32;
 	}
 
 	/* 在较小屏幕上让输入框和按钮更好地适配 */
