@@ -335,10 +335,10 @@
 
 		// 检查医保余额
 		if (selectedMethod.value === 'medical' && medicalBalance.value !== null) {
-			if (medicalBalance.value < displayActualPay) {
+			if (medicalBalance.value < displayActualPay.value) {
 				uni.showModal({
 					title: '余额不足',
-					content: `您的医保余额为 ¥${(medicalBalance.value ?? 0).toFixed(2)}，不足以支付 ¥${(displayActualPay ?? 0).toFixed(2)}`,
+					content: `您的医保余额为 ¥${(medicalBalance.value ?? 0).toFixed(2)}，不足以支付 ¥${(displayActualPay.value ?? 0).toFixed(2)}`,
 					showCancel: false
 				})
 				return
@@ -347,7 +347,7 @@
 
 		uni.showModal({
 			title: '确认支付',
-			content: `确认使用${selectedMethod.value === 'medical' ? '医保' : '微信'}支付 ¥${(displayActualPay ?? 0).toFixed(2)} 吗？`,
+			content: `确认使用${selectedMethod.value === 'medical' ? '医保' : '微信'}支付 ¥${(displayActualPay.value ?? 0).toFixed(2)} 吗？`,
 			success: async (res) => {
 				if (res.confirm) {
 					await performPayment()
