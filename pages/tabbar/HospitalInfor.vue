@@ -38,7 +38,12 @@
 				
 				<view class="section contact-section">
 					<view class="section-title">联系方式</view>
-					<view class="contact-item">地址：XXX市XXX区xxx路100号</view>
+					<view class="contact-item address-row">
+						<text>地址：XXX市XXX区xxx路100号</text>
+						<view class="nav-btn" @click="navigateToHospital">
+							<text>导航到医院</text>
+						</view>
+					</view>
 					<view class="contact-item">电话：010-12345678</view>
 					<view class="contact-item">邮箱：xxxhis.cn</view>
 					<view class="contact-item">官网：www.cityhospital.cn</view>
@@ -76,6 +81,35 @@
 		'/static/images/home/lb1.jpg',
 		'/static/images/home/lb1.jpg',
 	])
+
+	// 医院门诊楼坐标（北京交通大学校医院）
+	const hospitalLocation = {
+		latitude: 39.953418,
+		longitude: 116.346908,
+		name: '北京交通大学校医院',
+		address: '北京市海淀区上园村3号'
+	}
+
+	// 导航到医院
+	function navigateToHospital() {
+		uni.openLocation({
+			latitude: hospitalLocation.latitude,
+			longitude: hospitalLocation.longitude,
+			name: hospitalLocation.name,
+			address: hospitalLocation.address,
+			scale: 18,
+			success: () => {
+				console.log('打开地图成功')
+			},
+			fail: (err) => {
+				console.error('打开地图失败:', err)
+				uni.showToast({
+					title: '无法打开地图',
+					icon: 'none'
+				})
+			}
+		})
+	}
 </script>
 
 <style scoped>
@@ -212,5 +246,30 @@
 	.contact-item {
 		margin-bottom: 16rpx;
 		user-select: text;
+	}
+
+	.address-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.nav-btn {
+		display: flex;
+		align-items: center;
+		gap: 6rpx;
+		background: linear-gradient(135deg, #1890ff, #0052d9);
+		color: #fff;
+		padding: 12rpx 24rpx;
+		border-radius: 30rpx;
+		font-size: 26rpx;
+		font-weight: 500;
+		box-shadow: 0 4rpx 12rpx rgba(24, 144, 255, 0.3);
+		transition: all 0.2s ease;
+	}
+
+	.nav-btn:active {
+		transform: scale(0.95);
+		opacity: 0.9;
 	}
 </style>
