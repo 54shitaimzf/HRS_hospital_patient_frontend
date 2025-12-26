@@ -66,7 +66,9 @@
 		{
 			"path": "pages/his/WaitingRegistrations",
 			"style": {
-				"navigationBarTitleText": "候补记录"
+				"navigationBarTitleText": "候补记录",
+				"enablePullDownRefresh": true,
+				"backgroundTextStyle": "dark"
 			}
 		},
 		{

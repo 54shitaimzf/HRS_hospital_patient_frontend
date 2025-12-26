@@ -52,7 +52,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onPullDownRefresh } from '@dcloudio/uni-app'
 import { useUserStore } from '../../store/user.js'
 import { fetchWaitingRegistrations, cancelWaitingRegistration } from '../../utils/api.js'
 
@@ -64,6 +64,11 @@ const cancelling = reactive({})
 
 onLoad(async () => {
   await loadList()
+})
+
+onPullDownRefresh(async () => {
+  await loadList()
+  uni.stopPullDownRefresh()
 })
 
 async function loadList() {

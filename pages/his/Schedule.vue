@@ -303,7 +303,7 @@
 
 		// 跳转到加号申请页面，传递必要参数
 		uni.navigateTo({
-			url: `/pages/his/ExtraApply?scheduleRecordId=${item.scheduleRecordId}&doctorName=${encodeURIComponent(item.doctorName)}&departmentName=${encodeURIComponent(departmentName.value)}&date=${selectedDate.value}&timePeriod=${encodeURIComponent(item.timePeriodName)}`
+			url: `/pages/his/ExtraApply?doctorId=${item.doctorId}&deptId=${departmentId.value}&scheduleRecordId=${item.scheduleRecordId}&doctorName=${encodeURIComponent(item.doctorName)}&departmentName=${encodeURIComponent(departmentName.value)}&date=${selectedDate.value}&timePeriod=${encodeURIComponent(item.timePeriodName)}`
 		})
 	}
 

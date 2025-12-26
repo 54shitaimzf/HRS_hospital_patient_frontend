@@ -55,7 +55,7 @@ function isPlainObject(val) {
 export function request({ url, method = 'GET', data = {}, header = {} }) {
   return new Promise((resolve, reject) => {
     const token = getToken();
-    const reqHeader = { ...header };
+    const reqHeader = { 'Content-Type': 'application/json', ...header };
     if (token) reqHeader['Authorization'] = `Bearer ${token}`;
     const BASE_URL = resolveBaseUrl();
     const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`;
@@ -594,10 +594,19 @@ export async function fetchRegistrationFeePreview({ patientId, scheduleRecordId 
 }
 
 export async function submitExtraApply({ patientId, departmentId, doctorId, appointmentDate, reason }) {
+  console.log('========== 加号申请参数调试 ==========');
+  console.log('patientId:', patientId, '类型:', typeof patientId);
+  console.log('departmentId:', departmentId, '类型:', typeof departmentId);
+  console.log('doctorId:', doctorId, '类型:', typeof doctorId);
+  console.log('appointmentDate:', appointmentDate);
+  console.log('reason:', reason);
+  console.log('======================================');
+
   if (!patientId || !departmentId || !doctorId || !appointmentDate || !reason) {
     return Promise.reject({ message: '加号申请缺少必填参数' });
   }
   const body = { patientId, departmentId, doctorId, appointmentDate, reason };
+  console.log('发送的请求体:', JSON.stringify(body, null, 2));
   try {
     const res = await api.post('/api/extra-apply', body);
     if (res.statusCode === 201 || (res.statusCode >= 200 && res.statusCode < 300)) {
